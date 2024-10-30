@@ -94,3 +94,6 @@ class INPX:
 
     def archives(self) -> set[str]:
         return self._archives
+
+    def items(self):
+        return self._books.items()

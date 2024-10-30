@@ -59,6 +59,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/tzdata-2024b-hc8b5060_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/urllib3-2.2.3-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/wcwidth-0.2.13-pyhd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/whoosh-2.7.4-py312h7900ff3_9.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/xz-5.2.6-h166bdaf_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstandard-0.23.0-py312hef9b889_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/zstd-1.5.6-ha6fb4c9_0.conda
@@ -936,6 +937,22 @@ packages:
   license_family: MIT
   size: 32709
   timestamp: 1704731373922
+- kind: conda
+  name: whoosh
+  version: 2.7.4
+  build: py312h7900ff3_9
+  build_number: 9
+  subdir: linux-64
+  url: https://conda.anaconda.org/conda-forge/linux-64/whoosh-2.7.4-py312h7900ff3_9.conda
+  sha256: 35626ca8408e73cf058c83ce6bfb27bd57799728e34a8a2b00d86e818c747af8
+  md5: e5a950566c860347789b12fba793fed9
+  depends:
+  - python >=3.12,<3.13.0a0
+  - python_abi 3.12.* *_cp312
+  license: BSD-2-Clause
+  license_family: BSD
+  size: 811510
+  timestamp: 1725353216678
 - kind: conda
   name: xz
   version: 5.2.6

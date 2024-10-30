@@ -1,0 +1,19 @@
+[project]
+authors = ["Denis Chaplygin <me@akashihi.org>"]
+channels = ["conda-forge"]
+description = "Add a short description here"
+name = "flget"
+platforms = ["linux-64"]
+version = "0.1.0"
+
+[tasks]
+
+[dependencies]
+python = "3.12.*"
+pixi-pycharm = ">=0.0.8,<0.0.9"
+pyfiglet = ">=0.8.post1,<0.9"
+platformdirs = ">=4.3.6,<5"
+typer = ">=0.12.5,<0.13"
+tomlkit = ">=0.13.2,<0.14"
+prompt_toolkit = ">=3.0.48,<4"
+requests = ">=2.32.3,<3"

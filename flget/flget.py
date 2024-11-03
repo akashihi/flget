@@ -8,7 +8,7 @@ from rich.table import Table
 
 from config import Config
 from dbsync import get_dumps,db_import_dumps
-from index import TheIndex
+from library import TheLibrary
 from mirror import list_unknown_archives, list_unknown_entries
 from inpx import INPX
 
@@ -16,20 +16,17 @@ app = typer.Typer()
 console = Console()
 error_console = Console(stderr=True, style="bold red")
 config = Config()
-index = TheIndex()
+library = TheLibrary(config)
 
 
 @app.command()
-def get(id: int):
-    # INPX discovery
-    with console.status("Importing INPX", spinner="shark"):
-        inpx = INPX(config.libdir())
-    for book in inpx:
-        if book.lib_id == id:
-            print(book)
-            zippath = os.path.join(config.libdir(), f"{book.archive}.zip")
-            with zipfile.ZipFile(zippath, "r") as archive:
-                archive.extract(f"{book.filename}.{book.ext}", "/tmp")
+def get(book_id: int):
+    """
+    Retrieves book by id and stores it into the specified folder.
+
+    """
+    library.get(book_id)
+
 
 @app.command()
 def search(query: str):
@@ -37,7 +34,7 @@ def search(query: str):
     Search for the author/series/book
 
     """
-    results = index.search_books(query)
+    results = library.search_books(query)
 
     table = Table(title="Books")
     table.add_column("ID", justify="right",style="cyan", no_wrap=True)
@@ -82,7 +79,7 @@ def sync():
     #             db_import_dumps()
 
     with console.status("Indexing books", spinner="shark"):
-        index.create_index(inpx)
+        library.sync(inpx)
 
 @app.command()
 def set_library_path(path: str):

@@ -10,7 +10,7 @@ from inpx import BookEntry
 from inpx import INPX
 
 
-class TheIndex:
+class BookIndex:
     def __init__(self):
         self._book_schema = Schema(title=TEXT(analyzer=StemmingAnalyzer(), stored=True), lib_id=ID(stored=True))
 

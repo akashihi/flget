@@ -53,12 +53,10 @@ class INPX:
             raise FileNotFoundError
 
         self._books = {}
-        self._archives = set()
         with zipfile.ZipFile(self._inpx_file, "r") as inpx:
             for entry in inpx.namelist():
                 if entry.lower().endswith(".inp"):
                     archive = Path(entry).stem
-                    self._archives.add(archive)
                     info_raw = inpx.read(entry)
                     for line in info_raw.split(b'\r\n'):
                         book_entry = line.split(b'\x04')
@@ -91,9 +89,6 @@ class INPX:
 
     def exists(self, id: str) -> bool:
         return id in self._books
-
-    def archives(self) -> set[str]:
-        return self._archives
 
     def items(self):
         return self._books.items()

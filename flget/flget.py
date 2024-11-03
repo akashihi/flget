@@ -4,12 +4,12 @@ import pyfiglet
 import typer
 from rich.console import Console
 from prompt_toolkit import prompt
+from rich.progress import Progress
 from rich.table import Table
 
 from config import Config
 from dbsync import get_dumps,db_import_dumps
 from library import TheLibrary
-from mirror import list_unknown_archives, list_unknown_entries
 from inpx import INPX
 
 app = typer.Typer()
@@ -60,17 +60,23 @@ def sync():
             console.print(f"Found [spring_green4]{len(inpx)}[/spring_green4] books", style="royal_blue1")
         except FileNotFoundError:
             error_console.print("INPX file is not available")
+            return
 
-    with console.status("Scanning local mirror", spinner="shark"):
-        unknown_archives = list_unknown_archives(config.libdir(), inpx)
-        unknown_entries = list_unknown_entries(config.libdir(), inpx)
-    if unknown_archives:
-        console.print(f"Found {len(unknown_archives)} unknown archives", style="royal_blue1")
-    if unknown_entries:
-        console.print(f"Found {len(unknown_entries)} unknown books", style="royal_blue1")
+    with Progress() as progress:
+        mirror_task = progress.add_task(total=100, description="[green]Scanning local mirror")
 
-    # if unknown_archives and unknown_entries:
-    #     db_sync = prompt("Unknown items found, would you like to sync with a DB dump? (y/N)")
+        def task_updater(advance: float)->None:
+            progress.update(mirror_task, advance=advance)
+        validation_results = library.validate(task_updater)
+    if validation_results.missing_archives >0 :
+        console.print(f"Found {validation_results.missing_archives} missing archives, please check your mirror.", style="deep_pink3")
+    if validation_results.unknown_archives >0 :
+        console.print(f"Found {validation_results.unknown_archives} unknown archives", style="royal_blue1")
+    if validation_results.unknown_books >0 :
+        console.print(f"Found {validation_results.unknown_books} unknown books", style="royal_blue1")
+
+    if validation_results.unknown_archives >0 and validation_results.unknown_books >0:
+        db_sync = prompt("Unknown items found, would you like to sync with a DB dump? (y/N)")
     #     if db_sync.lower() == 'y':
     #         with console.status("Downloading DB dumps", spinner="shark"):
     #             #get_dumps()

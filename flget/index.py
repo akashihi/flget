@@ -1,3 +1,5 @@
+from typing import Optional
+
 import platformdirs
 import os
 
@@ -65,6 +67,16 @@ class BookIndex:
             entries = [
                 AuthorEntry(e["author_id"], e["author"], e["no_books"], e["no_series"] if "no_series" in e else "") for e in results]
             return entries
+
+    def suggest_authors(self, query: str) -> Optional[str]:
+        qp = QueryParser("author", schema=self._author_schema)
+        q = qp.parse(query)
+        with self._author_index.searcher() as searcher:
+            corrected = searcher.correct_query(q, query)
+            if corrected.query != q:
+                return corrected.string
+            else:
+                return None
 
     def search_books(self, query: str) -> list[BookEntry]:
         qp = QueryParser("title", schema=self._book_schema)

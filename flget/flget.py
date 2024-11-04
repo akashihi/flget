@@ -36,16 +36,23 @@ def author_search(query: str) -> None:
     """
     results = library.search_authors(query)
 
-    table = Table(title="Authors", expand=True, box=box.SIMPLE_HEAVY)
-    table.add_column("ID", justify="right", style="cyan", no_wrap=True)
-    table.add_column("Name", style="magenta")
-    table.add_column("Books", justify="center", style="indian_red1", no_wrap=True)
-    table.add_column("Series", justify="center", style="indian_red1", no_wrap=True)
+    if results:
+        table = Table(title="Authors", expand=True, box=box.SIMPLE_HEAVY)
+        table.add_column("ID", justify="right", style="cyan", no_wrap=True)
+        table.add_column("Name", style="magenta")
+        table.add_column("Books", justify="center", style="indian_red1", no_wrap=True)
+        table.add_column("Series", justify="center", style="indian_red1", no_wrap=True)
 
-    for result in results:
-        table.add_row(str(result.id), result.name, str(result.books), str(result.series))
+        for result in results:
+            table.add_row(str(result.id), result.name, str(result.books), str(result.series))
 
-    console.print(table)
+        console.print(table)
+    else:
+        suggestion = library.suggest_authors(query)
+        if suggestion:
+            console.print(f"Did you meant '{suggestion}'?")
+        else:
+            console.print("Nothing found")
 
 @search_app.command(name="all")
 def search(query: str) -> None:

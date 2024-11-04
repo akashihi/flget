@@ -63,6 +63,9 @@ class TheLibrary:
     def search_authors(self, query: str) -> list[AuthorEntry]:
         return self._index.search_authors(query)
 
+    def suggest_authors(self, query: str) -> list[AuthorEntry]:
+        return self._index.suggest_authors(query)
+
     def search_books(self, query: str) -> list[BookEntry]:
         return self._index.search_books(query)
 

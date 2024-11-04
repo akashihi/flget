@@ -1,3 +1,4 @@
+from audioop import reverse
 from typing import Optional
 
 import platformdirs
@@ -29,7 +30,7 @@ class BookIndex:
     def __init__(self):
         self._book_schema = Schema(title=TEXT(analyzer=StemmingAnalyzer(), stored=True), lib_id=ID(stored=True))
         self._author_schema = Schema(author=TEXT(analyzer=StemmingAnalyzer(), stored=True), author_id=ID(stored=True),
-                                     no_books=NUMERIC(stored=True), no_series=NUMERIC(stored=True))
+                                     no_books=NUMERIC(stored=True,sortable=True), no_series=NUMERIC(stored=True))
         self._series_schema = Schema(series=TEXT(analyzer=StemmingAnalyzer(), stored=True), series_id=ID(stored=True),
                                      no_books=NUMERIC(stored=True), no_authors=NUMERIC(stored=True))
 
@@ -63,7 +64,7 @@ class BookIndex:
         qp = QueryParser("author", schema=self._author_schema)
         q = qp.parse(query)
         with self._author_index.searcher() as searcher:
-            results = searcher.search(q, limit=None)
+            results = searcher.search(q, limit=None, sortedby="no_books", reverse=True)
             entries = [
                 AuthorEntry(e["author_id"], e["author"], e["no_books"], e["no_series"] if "no_series" in e else "") for e in results]
             return entries

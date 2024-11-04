@@ -10,6 +10,7 @@ from whoosh.fields import Schema, TEXT, ID, NUMERIC
 from whoosh.index import FileIndex
 from whoosh.qparser import QueryParser
 
+from inpx import SeriesEntry
 from inpx import AuthorEntry
 from inpx import BookEntry
 from inpx import INPX
@@ -32,7 +33,7 @@ class BookIndex:
         self._author_schema = Schema(author=TEXT(analyzer=StemmingAnalyzer(), stored=True), author_id=ID(stored=True),
                                      no_books=NUMERIC(stored=True,sortable=True), no_series=NUMERIC(stored=True))
         self._series_schema = Schema(series=TEXT(analyzer=StemmingAnalyzer(), stored=True), series_id=ID(stored=True),
-                                     no_books=NUMERIC(stored=True), no_authors=NUMERIC(stored=True))
+                                     no_books=NUMERIC(stored=True, sortable=True), no_authors=NUMERIC(stored=True))
 
         self._book_index = _open_index("book", self._book_schema)
         self._author_index = _open_index("author", self._author_schema)
@@ -73,6 +74,24 @@ class BookIndex:
         qp = QueryParser("author", schema=self._author_schema)
         q = qp.parse(query)
         with self._author_index.searcher() as searcher:
+            corrected = searcher.correct_query(q, query)
+            if corrected.query != q:
+                return corrected.string
+            else:
+                return None
+
+    def search_series(self, query: str) -> list[SeriesEntry]:
+        qp = QueryParser("series", schema=self._series_schema)
+        q = qp.parse(query)
+        with self._series_index.searcher() as searcher:
+            results = searcher.search(q, limit=None, sortedby="no_books", reverse=True)
+            entries = [SeriesEntry(e["series_id"], e["series"], e["no_books"], e["no_authors"]) for e in results]
+            return entries
+
+    def suggest_series(self, query: str) -> Optional[str]:
+        qp = QueryParser("series", schema=self._series_schema)
+        q = qp.parse(query)
+        with self._series_index.searcher() as searcher:
             corrected = searcher.correct_query(q, query)
             if corrected.query != q:
                 return corrected.string

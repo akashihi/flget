@@ -2,12 +2,13 @@ import os
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 
 import platformdirs
 import sqlite3
 
 from config import Config
+from inpx import SeriesEntry
 from inpx import AuthorEntry
 from inpx import INPX, BookEntry
 from index import BookIndex
@@ -63,8 +64,14 @@ class TheLibrary:
     def search_authors(self, query: str) -> list[AuthorEntry]:
         return self._index.search_authors(query)
 
-    def suggest_authors(self, query: str) -> list[AuthorEntry]:
+    def suggest_authors(self, query: str) -> Optional[str]:
         return self._index.suggest_authors(query)
+
+    def search_series(self, query: str) -> list[SeriesEntry]:
+        return self._index.search_series(query)
+
+    def suggest_series(self, query: str) -> Optional[str]:
+        return self._index.suggest_series(query)
 
     def search_books(self, query: str) -> list[BookEntry]:
         return self._index.search_books(query)

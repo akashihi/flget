@@ -8,6 +8,7 @@ import platformdirs
 import sqlite3
 
 from config import Config
+from inpx import AuthorEntry
 from inpx import INPX, BookEntry
 from index import BookIndex
 
@@ -58,6 +59,9 @@ class TheLibrary:
         for lib_id, book in inpx.items():
             cur.execute(FILES_UPDATE, (lib_id, book.archive, book.filename, book.filesize, book.ext))
         self._file_db.commit()
+
+    def search_authors(self, query: str) -> list[AuthorEntry]:
+        return self._index.search_authors(query)
 
     def search_books(self, query: str) -> list[BookEntry]:
         return self._index.search_books(query)

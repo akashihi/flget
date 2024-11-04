@@ -7,6 +7,7 @@ from whoosh.fields import Schema, TEXT, ID, NUMERIC
 from whoosh.index import FileIndex
 from whoosh.qparser import QueryParser
 
+from inpx import AuthorEntry
 from inpx import BookEntry
 from inpx import INPX
 
@@ -55,6 +56,15 @@ class BookIndex:
         for lib_id, book in inpx.items():
             b_writer.add_document(title=book.title, lib_id=lib_id)
         b_writer.commit()
+
+    def search_authors(self, query: str) -> list[AuthorEntry]:
+        qp = QueryParser("author", schema=self._author_schema)
+        q = qp.parse(query)
+        with self._author_index.searcher() as searcher:
+            results = searcher.search(q, limit=None)
+            entries = [
+                AuthorEntry(e["author_id"], e["author"], e["no_books"], e["no_series"] if "no_series" in e else "") for e in results]
+            return entries
 
     def search_books(self, query: str) -> list[BookEntry]:
         qp = QueryParser("title", schema=self._book_schema)

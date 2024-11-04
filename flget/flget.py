@@ -1,5 +1,3 @@
-import os.path
-import zipfile
 import pyfiglet
 import typer
 from rich.console import Console
@@ -20,7 +18,7 @@ library = TheLibrary(config)
 
 
 @app.command()
-def get(book_id: int):
+def get(book_id: int)-> None:
     """
     Retrieves book by id and stores it into the specified folder.
 
@@ -29,7 +27,7 @@ def get(book_id: int):
 
 
 @app.command()
-def search(query: str):
+def search(query: str)-> None:
     """
     Search for the author/series/book
 
@@ -54,13 +52,18 @@ def sync():
     Reads INPX file (if provided), DB dump file (if provided), and analyzes content of
     the library mirror. Processed books are indexed into a local database.
     """
-    with console.status("Importing INPX", spinner="shark"):
+    with Progress() as progress:
+        inpx_task = progress.add_task(total=100, description="[spring_green4]INPX import")
+
+        def task_updater(advance: float) -> None:
+            progress.update(inpx_task, advance=advance)
+
         try:
-            inpx = INPX(config.libdir())
-            console.print(f"Found [spring_green4]{len(inpx)}[/spring_green4] books", style="royal_blue1")
+            inpx = INPX(config.libdir(), task_updater)
         except FileNotFoundError:
             error_console.print("INPX file is not available")
             return
+    console.print(f"Found [spring_green4]{len(inpx)}[/spring_green4] books", style="royal_blue1")
 
     with Progress() as progress:
         mirror_task = progress.add_task(total=100, description="[green]Scanning local mirror")

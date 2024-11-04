@@ -3,7 +3,7 @@ import zipfile
 from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Callable
 from xmlrpc.client import DateTime
 
 
@@ -40,7 +40,7 @@ def optional_int_parse(input: str) -> Optional[int]:
 
 
 class INPX:
-    def __init__(self, lib_dir: str):
+    def __init__(self, lib_dir: str, progress_update: Callable[[float],None]):
         if not os.path.exists(lib_dir):
             raise FileNotFoundError
         self._lib_dir = lib_dir
@@ -54,7 +54,9 @@ class INPX:
 
         self._books = {}
         with zipfile.ZipFile(self._inpx_file, "r") as inpx:
+            progress = 100.0/float(len(inpx.namelist()))
             for entry in inpx.namelist():
+                progress_update(progress)
                 if entry.lower().endswith(".inp"):
                     archive = Path(entry).stem
                     info_raw = inpx.read(entry)

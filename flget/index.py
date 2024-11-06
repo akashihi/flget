@@ -9,6 +9,7 @@ from whoosh.analysis import StemmingAnalyzer
 from whoosh.fields import Schema, TEXT, ID, NUMERIC, KEYWORD
 from whoosh.index import FileIndex
 from whoosh.qparser import QueryParser
+from whoosh.searching import Hit
 
 from inpx import SeriesEntry
 from inpx import AuthorEntry
@@ -26,14 +27,21 @@ def _open_index(index_name: str, schema: Schema) -> FileIndex:
         ix = index.open_dir(book_index_path, indexname=index_name)
     return ix
 
+def _book_result_to_entry(book_result: Hit) -> BookEntry:
+    return BookEntry(book_result["authors"].split(","), book_result["genres"].split(" "), book_result["title"],
+                     book_result["series"].split(","), None, None, None,
+                     book_result["lib_id"], None, None, None, book_result["lang"],
+                     book_result["rating"],
+                     book_result["keywords"].split(","), None)
+
 
 class BookIndex:
     def __init__(self):
         self._book_schema = Schema(title=TEXT(analyzer=StemmingAnalyzer(), stored=True), lib_id=ID(stored=True),
                                    lang=ID(stored=True), rating=NUMERIC(stored=True, sortable=True),
-                                   genres=KEYWORD(stored=True, scorable=True,lowercase=True),
-                                   keywords=KEYWORD(stored=True, scorable=True,lowercase=True, commas=True),
-                                   authors=ID(stored=True))
+                                   genres=KEYWORD(stored=True, scorable=True, lowercase=True),
+                                   keywords=KEYWORD(stored=True, scorable=True, lowercase=True, commas=True),
+                                   authors=ID(stored=True), series=ID(stored=True))
         self._author_schema = Schema(author=TEXT(analyzer=StemmingAnalyzer(), stored=True), author_id=ID(stored=True),
                                      no_books=NUMERIC(stored=True, sortable=True), no_series=NUMERIC(stored=True))
         self._series_schema = Schema(series=TEXT(analyzer=StemmingAnalyzer(), stored=True), series_id=ID(stored=True),
@@ -63,9 +71,11 @@ class BookIndex:
         b_writer.commit(mergetype=writing.CLEAR)
         b_writer = self._book_index.writer(procs=32, multisegment=True)
         for lib_id, book in inpx.items():
-            b_writer.add_document(title=book.title, lib_id=lib_id, lang=book.lang, rating=book.rating, genres=" ".join(book.genres),
+            b_writer.add_document(title=book.title, lib_id=lib_id, lang=book.lang, rating=book.rating,
+                                  genres=" ".join(book.genres),
                                   keywords=",".join(book.keywords),
-                                  authors=",".join(book.authors))
+                                  authors=",".join(book.authors),
+                                  series=",".join(book.series))
         b_writer.commit()
 
     def search_authors(self, query: str) -> list[AuthorEntry]:
@@ -110,10 +120,15 @@ class BookIndex:
         qp = QueryParser("title", schema=self._book_schema)
         q = qp.parse(query)
         with self._book_index.searcher() as searcher:
-            searcher.documents()
             results = searcher.search(q, limit=None, sortedby="rating", reverse=True)
             entries = [
-                BookEntry(e["authors"].split(","), e["genres"].split(" "), e["title"], None, None, None, None, e["lib_id"], None, None, None, e["lang"],
-                          e["rating"],
-                          e["keywords"].split(","), None) for e in results]
+                _book_result_to_entry(e) for e in results]
             return entries
+
+    def get_book(self, book_id: int) -> Optional[BookEntry]:
+        with self._book_index.searcher() as searcher:
+            book = searcher.document(lib_id=str(book_id))
+            if book is None:
+                return None
+            else:
+                return _book_result_to_entry(book)

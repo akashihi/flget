@@ -1,3 +1,4 @@
+import dataclasses
 import os
 import zipfile
 from dataclasses import dataclass
@@ -76,7 +77,7 @@ class TheLibrary:
     def search_books(self, query: str) -> list[BookEntry]:
         return self._index.search_books(query)
 
-    def get(self, book_id: int, target_path: str)-> None:
+    def save(self, book_id: int, target_path: str)-> None:
         book_file = self._file_db.execute(FILES_QUERY, (book_id,)).fetchone()
         zippath = os.path.join(self._config.libdir(), f"{book_file[0]}.zip")
         with zipfile.ZipFile(zippath, "r") as archive:
@@ -116,3 +117,10 @@ class TheLibrary:
         unknown_archives = self._count_unknown_archives(progress_update)
         unknown_entries, missing_archives = self._count_unknown_entries(progress_update)
         return MirrorValidationResult(missing_archives, unknown_archives, unknown_entries)
+
+    def get_book(self, book_id: int) -> Optional[BookEntry]:
+        book = self._index.get_book(book_id)
+        if not book:
+            return None
+        book_file = self._file_db.execute(FILES_QUERY, (book_id,)).fetchone()
+        return dataclasses.replace(book, filename=book_file[1], ext=book_file[3], archive=book_file[0], filesize=book_file[2])

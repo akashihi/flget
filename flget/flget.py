@@ -3,11 +3,14 @@ from typing import Annotated
 import platformdirs
 import pyfiglet
 import typer
+from click import style
 from rich import box
 from rich.console import Console
 from prompt_toolkit import prompt
+from rich.panel import Panel
 from rich.progress import Progress
 from rich.table import Table
+from rich.text import Text
 
 from config import Config
 from dbsync import get_dumps, db_import_dumps
@@ -16,6 +19,7 @@ from inpx import INPX
 
 app = typer.Typer()
 search_app = typer.Typer()
+show_app = typer.Typer()
 console = Console()
 error_console = Console(stderr=True, style="bold red")
 config = Config()
@@ -28,7 +32,7 @@ def get(book_id: int, target_path: Annotated[str, typer.Argument()] = platformdi
     Retrieves book by id and stores it into the specified folder.
 
     """
-    library.get(book_id, target_path)
+    library.save(book_id, target_path)
 
 
 @search_app.command(name="author")
@@ -118,6 +122,32 @@ def all_search(query: str) -> None:
     series_search(query)
     book_search(query)
 
+@show_app.command(name="book")
+def show_book(book_id:int) -> None:
+    """
+    Show book details
+    """
+    book = library.get_book(book_id)
+    if not book:
+        console.print("Book not found")
+        return
+
+    output_template = f"""
+    **Author(s):** 
+    
+    **Genres:** {", ".join(book.genres)}
+    """
+
+    output = Text()
+    output.append(f"Authors: {", ".join(book.authors)}\n", style="bold sea_green1")
+    output.append(f"Series: {", ".join(book.series)}\n", style="bold magenta")
+    output.append(f"Genres: {", ".join(book.genres)}\n", style="deep_sky_blue4")
+    output.append(f"Rating: {str(book.rating) if book.rating >= 0 else 'Not yet set'}\n", style="indian_red1")
+    output.append(f"Keywords: {", ".join(book.keywords)}\n", style="deep_sky_blue4")
+    output.append(f"Language: {book.lang}\n", style="indian_red1")
+    output.append(f"{book.filename}.{book.ext} in {config.libdir()}{book.archive}.zip ({book.filesize} bytes)\n", style="magenta")
+    console.print(Panel(output, title=book.title, subtitle=str(book.lib_id)))
+
 @app.command()
 def sync():
     """
@@ -187,6 +217,7 @@ def main():
 
     # CLI setup
     app.add_typer(search_app, name="search", help="Search books/authors/series")
+    app.add_typer(show_app, name="show", help="Show books/authors/series")
     app()
 
 

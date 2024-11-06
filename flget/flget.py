@@ -108,6 +108,16 @@ def book_search(query: str) -> None:
     console.print(table)
 
 
+@search_app.command(name="all")
+def all_search(query: str) -> None:
+    """
+    Search for the book/series/author
+
+    """
+    author_search(query)
+    series_search(query)
+    book_search(query)
+
 @app.command()
 def sync():
     """

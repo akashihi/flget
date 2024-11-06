@@ -27,7 +27,7 @@ class BookEntry:
     authors: list[str]
     genres: list[str]
     title: str
-    series: list[str]
+    series: str
     serno: int
     filename: str
     filesize: int
@@ -91,11 +91,11 @@ class INPX:
                             genres = multi_entry_clean(book_entry[1].decode("UTF-8").split(":"))
                             title = book_entry[2].decode("UTF-8")
 
-                            series = multi_entry_clean(book_entry[3].decode("UTF-8").split(":"))
+                            series = book_entry[3].decode("UTF-8")
                             if series:
-                                for s in series:
-                                    series_counter[s] = series_counter.get(s, 0) + 1
-                                for s_a in itertools.product(authors, series):
+                                series_counter[series] = series_counter.get(series, 0) + 1
+                                for a in authors:
+                                    s_a = (a, series)
                                     if s_a not in series_author_sentinel:
                                         series_author_sentinel.add(s_a)
                                         authors_series_counter[s_a[0]] = authors_series_counter.get(s_a[0], 0) + 1

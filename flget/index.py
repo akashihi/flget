@@ -29,7 +29,7 @@ def _open_index(index_name: str, schema: Schema) -> FileIndex:
 
 def _book_result_to_entry(book_result: Hit) -> BookEntry:
     return BookEntry(book_result["authors"].split(","), book_result["genres"].split(" "), book_result["title"],
-                     book_result["series"].split(","), None, None, None,
+                     book_result["series"], int(book_result["serno"]), None, None,
                      book_result["lib_id"], None, None, None, book_result["lang"],
                      book_result["rating"],
                      book_result["keywords"].split(","), None)
@@ -41,7 +41,7 @@ class BookIndex:
                                    lang=ID(stored=True), rating=NUMERIC(stored=True, sortable=True),
                                    genres=KEYWORD(stored=True, scorable=True, lowercase=True),
                                    keywords=KEYWORD(stored=True, scorable=True, lowercase=True, commas=True),
-                                   authors=ID(stored=True), series=ID(stored=True))
+                                   authors=ID(stored=True), series=ID(stored=True), serno=ID(stored=True))
         self._author_schema = Schema(author=TEXT(analyzer=StemmingAnalyzer(), stored=True), author_id=ID(stored=True),
                                      no_books=NUMERIC(stored=True, sortable=True), no_series=NUMERIC(stored=True))
         self._series_schema = Schema(series=TEXT(analyzer=StemmingAnalyzer(), stored=True), series_id=ID(stored=True),
@@ -75,7 +75,7 @@ class BookIndex:
                                   genres=" ".join(book.genres),
                                   keywords=",".join(book.keywords),
                                   authors=",".join(book.authors),
-                                  series=",".join(book.series))
+                                  series=book.series, serno=str(book.serno))
         b_writer.commit()
 
     def search_authors(self, query: str) -> list[AuthorEntry]:

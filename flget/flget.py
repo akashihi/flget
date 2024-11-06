@@ -1,3 +1,6 @@
+from typing import Annotated
+
+import platformdirs
 import pyfiglet
 import typer
 from rich import box
@@ -20,12 +23,12 @@ library = TheLibrary(config)
 
 
 @app.command()
-def get(book_id: int) -> None:
+def get(book_id: int, target_path: Annotated[str, typer.Argument()] = platformdirs.user_documents_dir()) -> None:
     """
     Retrieves book by id and stores it into the specified folder.
 
     """
-    library.get(book_id)
+    library.get(book_id, target_path)
 
 
 @search_app.command(name="author")

@@ -76,11 +76,11 @@ class TheLibrary:
     def search_books(self, query: str) -> list[BookEntry]:
         return self._index.search_books(query)
 
-    def get(self, book_id: int)-> None:
+    def get(self, book_id: int, target_path: str)-> None:
         book_file = self._file_db.execute(FILES_QUERY, (book_id,)).fetchone()
         zippath = os.path.join(self._config.libdir(), f"{book_file[0]}.zip")
         with zipfile.ZipFile(zippath, "r") as archive:
-            archive.extract(f"{book_file[1]}.{book_file[3]}", "/tmp")
+            archive.extract(f"{book_file[1]}.{book_file[3]}", target_path)
 
     def _count_unknown_archives(self, progress_update: Callable[[float],None]) -> int:
         archives = set(self._file_db.execute(ARCHIVES_QUERY).fetchall())

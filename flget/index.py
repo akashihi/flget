@@ -6,7 +6,7 @@ import os
 
 from whoosh import index, writing
 from whoosh.analysis import StemmingAnalyzer
-from whoosh.fields import Schema, TEXT, ID, NUMERIC
+from whoosh.fields import Schema, TEXT, ID, NUMERIC, KEYWORD
 from whoosh.index import FileIndex
 from whoosh.qparser import QueryParser
 
@@ -29,9 +29,13 @@ def _open_index(index_name: str, schema: Schema) -> FileIndex:
 
 class BookIndex:
     def __init__(self):
-        self._book_schema = Schema(title=TEXT(analyzer=StemmingAnalyzer(), stored=True), lib_id=ID(stored=True))
+        self._book_schema = Schema(title=TEXT(analyzer=StemmingAnalyzer(), stored=True), lib_id=ID(stored=True),
+                                   lang=ID(stored=True), rating=NUMERIC(stored=True, sortable=True),
+                                   genres=KEYWORD(stored=True, scorable=True,lowercase=True),
+                                   keywords=KEYWORD(stored=True, scorable=True,lowercase=True, commas=True),
+                                   authors=ID(stored=True))
         self._author_schema = Schema(author=TEXT(analyzer=StemmingAnalyzer(), stored=True), author_id=ID(stored=True),
-                                     no_books=NUMERIC(stored=True,sortable=True), no_series=NUMERIC(stored=True))
+                                     no_books=NUMERIC(stored=True, sortable=True), no_series=NUMERIC(stored=True))
         self._series_schema = Schema(series=TEXT(analyzer=StemmingAnalyzer(), stored=True), series_id=ID(stored=True),
                                      no_books=NUMERIC(stored=True, sortable=True), no_authors=NUMERIC(stored=True))
 
@@ -44,7 +48,8 @@ class BookIndex:
         a_writer.commit(mergetype=writing.CLEAR)
         a_writer = self._author_index.writer(procs=32, multisegment=True)
         for author in inpx.authors():
-            a_writer.add_document(author=author.name, author_id=str(author.id), no_books=author.books, no_series=author.series)
+            a_writer.add_document(author=author.name, author_id=str(author.id), no_books=author.books,
+                                  no_series=author.series)
         a_writer.commit()
 
         s_writer = self._series_index.writer()
@@ -58,7 +63,9 @@ class BookIndex:
         b_writer.commit(mergetype=writing.CLEAR)
         b_writer = self._book_index.writer(procs=32, multisegment=True)
         for lib_id, book in inpx.items():
-            b_writer.add_document(title=book.title, lib_id=lib_id)
+            b_writer.add_document(title=book.title, lib_id=lib_id, lang=book.lang, rating=book.rating, genres=" ".join(book.genres),
+                                  keywords=",".join(book.keywords),
+                                  authors=",".join(book.authors))
         b_writer.commit()
 
     def search_authors(self, query: str) -> list[AuthorEntry]:
@@ -67,7 +74,8 @@ class BookIndex:
         with self._author_index.searcher() as searcher:
             results = searcher.search(q, limit=None, sortedby="no_books", reverse=True)
             entries = [
-                AuthorEntry(e["author_id"], e["author"], e["no_books"], e["no_series"] if "no_series" in e else "") for e in results]
+                AuthorEntry(e["author_id"], e["author"], e["no_books"], e["no_series"] if "no_series" in e else "") for
+                e in results]
             return entries
 
     def suggest_authors(self, query: str) -> Optional[str]:
@@ -102,8 +110,10 @@ class BookIndex:
         qp = QueryParser("title", schema=self._book_schema)
         q = qp.parse(query)
         with self._book_index.searcher() as searcher:
-            results = searcher.search(q)
+            searcher.documents()
+            results = searcher.search(q, limit=None, sortedby="rating", reverse=True)
             entries = [
-                BookEntry(None, None, e["title"], None, None, None, None, e["lib_id"], None, None, None, None, None,
-                          None, None) for e in results]
+                BookEntry(e["authors"].split(","), e["genres"].split(" "), e["title"], None, None, None, None, e["lib_id"], None, None, None, e["lang"],
+                          e["rating"],
+                          e["keywords"].split(","), None) for e in results]
             return entries

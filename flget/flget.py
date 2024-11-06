@@ -82,10 +82,10 @@ def series_search(query: str) -> None:
             console.print("Nothing found")
 
 
-@search_app.command(name="all")
-def search(query: str) -> None:
+@search_app.command(name="book")
+def book_search(query: str) -> None:
     """
-    Search for the author/series/book
+    Search for the book
 
     """
     results = library.search_books(query)
@@ -93,9 +93,14 @@ def search(query: str) -> None:
     table = Table(title="Books")
     table.add_column("ID", justify="right", style="cyan", no_wrap=True)
     table.add_column("Title", style="magenta")
+    table.add_column("Authors", style="sea_green1")
+    table.add_column("Genres", style="deep_sky_blue4")
+    table.add_column("Rating", justify="center", style="indian_red1", no_wrap=True)
+    table.add_column("Keywords", style="deep_sky_blue4")
+    table.add_column("Language", justify="center", style="indian_red1", no_wrap=True)
 
     for result in results:
-        table.add_row(str(result.lib_id), result.title)
+        table.add_row(str(result.lib_id), result.title, ", ".join(result.authors), ", ".join(result.genres), str(result.rating) if result.rating >= 0 else "", ", ".join(result.keywords), result.lang,)
 
     console.print(table)
 

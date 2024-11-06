@@ -36,7 +36,7 @@ class BookEntry:
     ext: str
     date: DateTime
     lang: str
-    rating: str
+    rating: int
     keywords: list[str]
     archive: str
 
@@ -47,11 +47,11 @@ def multi_entry_clean(input: list[str]) -> list[str]:
     return list(map(lambda s: s.strip(","), input))
 
 
-def optional_int_parse(input: str) -> Optional[int]:
+def optional_int_parse(input: str) -> int:
     try:
-        return int(input) if input else None
+        return int(input) if input else -1
     except ValueError:
-        return None
+        return -1
 
 
 class INPX:

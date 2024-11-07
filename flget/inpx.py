@@ -123,9 +123,11 @@ class INPX:
             self._authors.append(AuthorEntry(index, name, books_count, series_count))
 
         self._series = []
+        self._series_index = {}
         for (index,(name, books_count)) in enumerate(series_counter.items()):
             authors_count = series_authors_counter[name]
             self._series.append(SeriesEntry(index, name, books_count, authors_count))
+            self._series_index[name] = index
 
     def __iter__(self):
         return iter(self._books)
@@ -136,11 +138,14 @@ class INPX:
     def __len__(self):
         return self._books.__len__()
 
-    def authors(self):
+    def authors(self)->list[AuthorEntry]:
         return self._authors
 
-    def series(self):
+    def series(self)->list[SeriesEntry]:
         return self._series
+
+    def series_to_id(self, name: str)-> Optional[int]:
+        return self._series_index.get(name, None)
 
     def exists(self, id: str) -> bool:
         return id in self._books

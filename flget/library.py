@@ -24,6 +24,15 @@ ext TEXT NOT NULL
 )
 """
 
+SERIES_DDL = """
+CREATE TABLE IF NOT EXISTS series (
+series_id INTEGER NOT NULL ,
+lib_id INTEGER NOT NULL,
+serno INTEGER NOT NULL,
+FOREIGN KEY(lib_id) REFERENCES files(lib_id),
+PRIMARY KEY(series_id, lib_id)
+)"""
+
 ARCHIVES_QUERY = """
 SELECT DISTINCT archive from files 
 """
@@ -34,6 +43,14 @@ SELECT archive, file, filesize, ext FROM files where lib_id=?
 
 FILES_UPDATE = """
 INSERT INTO files (lib_id, archive, file, filesize, ext) VALUES (?, ?, ?, ?, ?)
+"""
+
+SERIES_UPDATE = """
+INSERT INTO series(series_id, lib_id, serno) VALUES (?, ?, ?)
+"""
+
+SERIES_QUERY = """
+SELECT lib_id FROM series WHERE series_id=? ORDER BY serno ASC
 """
 
 @dataclass(frozen=True)
@@ -52,14 +69,19 @@ class TheLibrary:
 
         # Pre-create tables
         self._file_db.execute(FILES_DDL)
+        self._file_db.execute(SERIES_DDL)
         self._file_db.commit()
 
     def sync(self, inpx: INPX) -> None:
         self._index.create_index(inpx)
         cur = self._file_db.cursor()
         cur.execute("DELETE FROM files")
+        cur.execute("DELETE FROM series")
         for lib_id, book in inpx.items():
             cur.execute(FILES_UPDATE, (lib_id, book.archive, book.filename, book.filesize, book.ext))
+            series_id = inpx.series_to_id(book.series)
+            if series_id:
+                cur.execute(SERIES_UPDATE, (series_id, lib_id, book.serno))
         self._file_db.commit()
 
     def search_authors(self, query: str) -> list[AuthorEntry]:
@@ -124,3 +146,7 @@ class TheLibrary:
             return None
         book_file = self._file_db.execute(FILES_QUERY, (book_id,)).fetchone()
         return dataclasses.replace(book, filename=book_file[1], ext=book_file[3], archive=book_file[0], filesize=book_file[2])
+
+    def get_series(self, series_id :int) -> list[BookEntry]:
+        book_ids = self._file_db.execute(SERIES_QUERY, (series_id,)).fetchall()
+        return [self.get_book(book_id[0]) for book_id in book_ids]

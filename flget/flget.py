@@ -14,6 +14,7 @@ from rich.text import Text
 
 from config import Config
 from dbsync import get_dumps, db_import_dumps
+from inpx import BookEntry
 from library import TheLibrary
 from inpx import INPX
 
@@ -89,14 +90,7 @@ def series_search(query: str) -> None:
             console.print("Nothing found")
 
 
-@search_app.command(name="book")
-def book_search(query: str) -> None:
-    """
-    Search for the book
-
-    """
-    results = library.search_books(query)
-
+def _book_list_render(books: list[BookEntry]) -> None:
     table = Table(title="Books")
     table.add_column("ID", justify="right", style="cyan", no_wrap=True)
     table.add_column("Title", style="magenta")
@@ -106,10 +100,19 @@ def book_search(query: str) -> None:
     table.add_column("Keywords", style="deep_sky_blue4")
     table.add_column("Language", justify="center", style="indian_red1", no_wrap=True)
 
-    for result in results:
-        table.add_row(str(result.lib_id), result.title, ", ".join(result.authors), ", ".join(result.genres), str(result.rating) if result.rating >= 0 else "", ", ".join(result.keywords), result.lang,)
+    for book in books:
+        table.add_row(str(book.lib_id), book.title, ", ".join(book.authors), ", ".join(book.genres), str(book.rating) if book.rating >= 0 else "", ", ".join(book.keywords), book.lang,)
 
     console.print(table)
+
+
+@search_app.command(name="book")
+def book_search(query: str) -> None:
+    """
+    Search for the book
+
+    """
+    _book_list_render(library.search_books(query))
 
 
 @search_app.command(name="all")
@@ -148,6 +151,14 @@ def show_book(book_id:int) -> None:
     output.append(f"Language: {book.lang}\n", style="indian_red1")
     output.append(f"{book.filename}.{book.ext} in {config.libdir()}{book.archive}.zip ({book.filesize} bytes)\n", style="magenta")
     console.print(Panel(output, title=book.title, subtitle=str(book.lib_id)))
+
+@show_app.command(name="series")
+def show_series(series_id:int) -> None:
+    """
+    Show series books
+    
+    """
+    _book_list_render(library.get_series(series_id))
 
 @app.command()
 def sync():

@@ -90,8 +90,8 @@ def series_search(query: str) -> None:
             console.print("Nothing found")
 
 
-def _book_list_render(books: list[BookEntry]) -> None:
-    table = Table(title="Books")
+def _book_list_render(title: str, books: list[BookEntry]) -> None:
+    table = Table(title=title)
     table.add_column("ID", justify="right", style="cyan", no_wrap=True)
     table.add_column("Title", style="magenta")
     table.add_column("Authors", style="sea_green1")
@@ -112,7 +112,7 @@ def book_search(query: str) -> None:
     Search for the book
 
     """
-    _book_list_render(library.search_books(query))
+    _book_list_render("Books", library.search_books(query))
 
 
 @search_app.command(name="all")
@@ -158,7 +158,19 @@ def show_series(series_id:int) -> None:
     Show series books
     
     """
-    _book_list_render(library.get_series(series_id))
+    _book_list_render("Series", library.get_series(series_id))
+
+
+@show_app.command(name="author")
+def show_author(author_id: int) -> None:
+    """
+    Show author's series and books
+
+    """
+    for s in library.get_author_series(author_id):
+        show_series(s)
+
+    _book_list_render("Books", library.get_author_books(author_id))
 
 @app.command()
 def sync():

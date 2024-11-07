@@ -115,12 +115,14 @@ class INPX:
                             self._books[filename] = books_count
 
         self._authors = []
+        self._authors_index = {}
         for (index,(name, books_count)) in enumerate(authors_counter.items()):
             if name in authors_series_counter:
                 series_count = authors_series_counter[name]
             else:
                 series_count = None
             self._authors.append(AuthorEntry(index, name, books_count, series_count))
+            self._authors_index[name] = index
 
         self._series = []
         self._series_index = {}
@@ -146,6 +148,9 @@ class INPX:
 
     def series_to_id(self, name: str)-> Optional[int]:
         return self._series_index.get(name, None)
+
+    def author_to_id(self, name: str)-> Optional[int]:
+        return self._authors_index.get(name, None)
 
     def exists(self, id: str) -> bool:
         return id in self._books

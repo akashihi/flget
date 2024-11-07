@@ -31,7 +31,26 @@ lib_id INTEGER NOT NULL,
 serno INTEGER NOT NULL,
 FOREIGN KEY(lib_id) REFERENCES files(lib_id),
 PRIMARY KEY(series_id, lib_id)
-)"""
+)
+"""
+
+AUTHORS_SERIES_DDL = """
+CREATE TABLE IF NOT EXISTS authors_series (
+author_id INTEGER NOT NULL,
+series_id INTEGER NOT NULL,
+FOREIGN KEY(series_id) REFERENCES series(series_id),
+PRIMARY KEY(author_id, series_id)
+)
+"""
+
+AUTHORS_BOOKS_DDL = """
+CREATE TABLE IF NOT EXISTS authors_books (
+author_id INTEGER NOT NULL,
+lib_id INTEGER NOT NULL,
+FOREIGN KEY(lib_id) REFERENCES files(lib_id),
+PRIMARY KEY(author_id, lib_id)
+)
+"""
 
 ARCHIVES_QUERY = """
 SELECT DISTINCT archive from files 
@@ -53,6 +72,22 @@ SERIES_QUERY = """
 SELECT lib_id FROM series WHERE series_id=? ORDER BY serno ASC
 """
 
+AUTHORS_SERIES_UPDATE = """
+INSERT INTO authors_series (author_id, series_id) VALUES (?, ?) ON CONFLICT (author_id, series_id) DO NOTHING
+"""
+
+AUTHORS_BOOKS_UPDATE = """
+INSERT INTO authors_books (author_id, lib_id) VALUES (?, ?)
+"""
+
+AUTHORS_SERIES_QUERY = """
+SELECT DISTINCT series_id FROM authors_series WHERE author_id=? 
+"""
+
+AUTHORS_BOOKS_QUERY = """
+SELECT DISTINCT lib_id FROM authors_books WHERE author_id=? 
+"""
+
 @dataclass(frozen=True)
 class MirrorValidationResult:
     missing_archives: int
@@ -70,6 +105,8 @@ class TheLibrary:
         # Pre-create tables
         self._file_db.execute(FILES_DDL)
         self._file_db.execute(SERIES_DDL)
+        self._file_db.execute(AUTHORS_SERIES_DDL)
+        self._file_db.execute(AUTHORS_BOOKS_DDL)
         self._file_db.commit()
 
     def sync(self, inpx: INPX) -> None:
@@ -77,11 +114,21 @@ class TheLibrary:
         cur = self._file_db.cursor()
         cur.execute("DELETE FROM files")
         cur.execute("DELETE FROM series")
+        cur.execute("DELETE FROM authors_series")
+        cur.execute("DELETE FROM authors_books")
         for lib_id, book in inpx.items():
             cur.execute(FILES_UPDATE, (lib_id, book.archive, book.filename, book.filesize, book.ext))
             series_id = inpx.series_to_id(book.series)
             if series_id:
                 cur.execute(SERIES_UPDATE, (series_id, lib_id, book.serno))
+                for author in book.authors:
+                    author_id = inpx.author_to_id(author)
+                    cur.execute(AUTHORS_SERIES_UPDATE, (author_id, series_id))
+            else:
+                for author in book.authors:
+                    author_id = inpx.author_to_id(author)
+                    cur.execute(AUTHORS_BOOKS_UPDATE, (author_id, lib_id))
+
         self._file_db.commit()
 
     def search_authors(self, query: str) -> list[AuthorEntry]:
@@ -149,4 +196,12 @@ class TheLibrary:
 
     def get_series(self, series_id :int) -> list[BookEntry]:
         book_ids = self._file_db.execute(SERIES_QUERY, (series_id,)).fetchall()
+        return [self.get_book(book_id[0]) for book_id in book_ids]
+
+    def get_author_series(self, author_id: int) -> list[int]:
+        series_ids = self._file_db.execute(AUTHORS_SERIES_QUERY, (author_id,)).fetchall()
+        return [s[0] for s in series_ids]
+
+    def get_author_books(self, author_id: int) -> list[BookEntry]:
+        book_ids = self._file_db.execute(AUTHORS_BOOKS_QUERY, (author_id,)).fetchall()
         return [self.get_book(book_id[0]) for book_id in book_ids]

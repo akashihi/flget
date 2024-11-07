@@ -73,6 +73,10 @@ SERIES_QUERY = """
 SELECT lib_id FROM series WHERE series_id=? ORDER BY serno ASC
 """
 
+SERIES_NAME_QUERY = """
+SELECT DISTINCT name FROM series WHERE series_id=? LIMIT 1
+"""
+
 AUTHORS_SERIES_UPDATE = """
 INSERT INTO authors_series (author_id, series_id) VALUES (?, ?) ON CONFLICT (author_id, series_id) DO NOTHING
 """
@@ -198,6 +202,9 @@ class TheLibrary:
             return None
         book_file = self._file_db.execute(FILES_QUERY, (book_id,)).fetchone()
         return dataclasses.replace(book, filename=book_file[1], ext=book_file[3], archive=book_file[0], filesize=book_file[2])
+
+    def get_series_name(self, series_id: int) -> Optional[str]:
+        return self._file_db.execute(SERIES_NAME_QUERY, (series_id,)).fetchone()[0]
 
     def get_series(self, series_id :int) -> list[BookEntry]:
         book_ids = self._file_db.execute(SERIES_QUERY, (series_id,)).fetchall()

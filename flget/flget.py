@@ -158,7 +158,7 @@ def show_series(series_id:int) -> None:
     Show series books
     
     """
-    _book_list_render("Series", library.get_series(series_id))
+    _book_list_render(library.get_series_name(series_id), library.get_series(series_id))
 
 
 @show_app.command(name="author")
@@ -170,7 +170,7 @@ def show_author(author_id: int) -> None:
     for s in library.get_author_series(author_id):
         show_series(s)
 
-    _book_list_render("Books", library.get_author_books(author_id))
+    _book_list_render("Non-series Books", library.get_author_books(author_id))
 
 @app.command()
 def sync():

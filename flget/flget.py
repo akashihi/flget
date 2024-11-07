@@ -194,6 +194,14 @@ def sync():
     console.print(f"Found [spring_green4]{len(inpx)}[/spring_green4] books", style="royal_blue1")
 
     with Progress() as progress:
+        index_task = progress.add_task(total=100, description="[spring_green4]Indexing books")
+
+        def task_updater(advance: float) -> None:
+            progress.update(index_task, advance=advance)
+
+        library.sync(inpx, task_updater)
+
+    with Progress() as progress:
         mirror_task = progress.add_task(total=100, description="[green]Scanning local mirror")
 
         def task_updater(advance: float) -> None:
@@ -217,8 +225,6 @@ def sync():
     #         with console.status("Importing DB dumps", spinner="shark"):
     #             db_import_dumps()
 
-    with console.status("Indexing books", spinner="shark"):
-        library.sync(inpx)
 
 
 @app.command()

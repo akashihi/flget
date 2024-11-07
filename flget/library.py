@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS series (
 series_id INTEGER NOT NULL ,
 lib_id INTEGER NOT NULL,
 serno INTEGER NOT NULL,
+name TEXT NOT NULL,
 FOREIGN KEY(lib_id) REFERENCES files(lib_id),
 PRIMARY KEY(series_id, lib_id)
 )
@@ -65,7 +66,7 @@ INSERT INTO files (lib_id, archive, file, filesize, ext) VALUES (?, ?, ?, ?, ?)
 """
 
 SERIES_UPDATE = """
-INSERT INTO series(series_id, lib_id, serno) VALUES (?, ?, ?)
+INSERT INTO series(series_id, lib_id, serno, name) VALUES (?, ?, ?, ?)
 """
 
 SERIES_QUERY = """
@@ -109,18 +110,22 @@ class TheLibrary:
         self._file_db.execute(AUTHORS_BOOKS_DDL)
         self._file_db.commit()
 
-    def sync(self, inpx: INPX) -> None:
-        self._index.create_index(inpx)
+    def sync(self, inpx: INPX, progress_update: Callable[[float],None]) -> None:
+        self._index.create_index(inpx, progress_update)
         cur = self._file_db.cursor()
         cur.execute("DELETE FROM files")
         cur.execute("DELETE FROM series")
         cur.execute("DELETE FROM authors_series")
         cur.execute("DELETE FROM authors_books")
+
+        progress = 50.0 / float(len(inpx.items()))
+
         for lib_id, book in inpx.items():
+            progress_update(progress)
             cur.execute(FILES_UPDATE, (lib_id, book.archive, book.filename, book.filesize, book.ext))
             series_id = inpx.series_to_id(book.series)
             if series_id:
-                cur.execute(SERIES_UPDATE, (series_id, lib_id, book.serno))
+                cur.execute(SERIES_UPDATE, (series_id, lib_id, book.serno, book.series))
                 for author in book.authors:
                     author_id = inpx.author_to_id(author)
                     cur.execute(AUTHORS_SERIES_UPDATE, (author_id, series_id))

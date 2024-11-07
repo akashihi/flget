@@ -1,5 +1,5 @@
 from audioop import reverse
-from typing import Optional
+from typing import Optional, Callable
 
 import platformdirs
 import os
@@ -51,7 +51,7 @@ class BookIndex:
         self._author_index = _open_index("author", self._author_schema)
         self._series_index = _open_index("series", self._series_schema)
 
-    def create_index(self, inpx: INPX):
+    def create_index(self, inpx: INPX, progress__update: Callable[[float],None]):
         a_writer = self._author_index.writer()
         a_writer.commit(mergetype=writing.CLEAR)
         a_writer = self._author_index.writer(procs=32, multisegment=True)
@@ -70,7 +70,10 @@ class BookIndex:
         b_writer = self._book_index.writer()
         b_writer.commit(mergetype=writing.CLEAR)
         b_writer = self._book_index.writer(procs=32, multisegment=True)
+
+        progress = 50.0 / float(len(inpx.items()))
         for lib_id, book in inpx.items():
+            progress__update(progress)
             b_writer.add_document(title=book.title, lib_id=lib_id, lang=book.lang, rating=book.rating,
                                   genres=" ".join(book.genres),
                                   keywords=",".join(book.keywords),

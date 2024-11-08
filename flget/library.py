@@ -3,7 +3,7 @@ import os
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple
 
 import platformdirs
 import sqlite3
@@ -93,18 +93,22 @@ AUTHORS_BOOKS_QUERY = """
 SELECT DISTINCT lib_id FROM authors_books WHERE author_id=? 
 """
 
+
 @dataclass(frozen=True)
 class MirrorValidationResult:
     missing_archives: int
     unknown_archives: int
     unknown_books: int
 
+
 class TheLibrary:
     def __init__(self, config: Config) -> None:
         self._config = config
         self._index = BookIndex()
 
-        file_db_path = os.path.join(platformdirs.user_cache_dir("flget", ensure_exists=True), "files.db")
+        file_db_path = os.path.join(
+            platformdirs.user_cache_dir("flget", ensure_exists=True), "files.db"
+        )
         self._file_db = sqlite3.connect(file_db_path)
 
         # Pre-create tables
@@ -114,7 +118,7 @@ class TheLibrary:
         self._file_db.execute(AUTHORS_BOOKS_DDL)
         self._file_db.commit()
 
-    def sync(self, inpx: INPX, progress_update: Callable[[float],None]) -> None:
+    def sync(self, inpx: INPX, progress_update: Callable[[float], None]) -> None:
         self._index.create_index(inpx, progress_update)
         cur = self._file_db.cursor()
         cur.execute("DELETE FROM files")
@@ -126,7 +130,10 @@ class TheLibrary:
 
         for lib_id, book in inpx.items():
             progress_update(progress)
-            cur.execute(FILES_UPDATE, (lib_id, book.archive, book.filename, book.filesize, book.ext))
+            cur.execute(
+                FILES_UPDATE,
+                (lib_id, book.archive, book.filename, book.filesize, book.ext),
+            )
             series_id = inpx.series_to_id(book.series)
             if series_id:
                 cur.execute(SERIES_UPDATE, (series_id, lib_id, book.serno, book.series))
@@ -155,17 +162,17 @@ class TheLibrary:
     def search_books(self, query: str) -> list[BookEntry]:
         return self._index.search_books(query)
 
-    def save(self, book_id: int, target_path: str)-> None:
+    def save(self, book_id: int, target_path: str) -> None:
         book_file = self._file_db.execute(FILES_QUERY, (book_id,)).fetchone()
         zippath = os.path.join(self._config.libdir(), f"{book_file[0]}.zip")
         with zipfile.ZipFile(zippath, "r") as archive:
             archive.extract(f"{book_file[1]}.{book_file[3]}", target_path)
 
-    def _count_unknown_archives(self, progress_update: Callable[[float],None]) -> int:
+    def _count_unknown_archives(self, progress_update: Callable[[float], None]) -> int:
         archives = set(self._file_db.execute(ARCHIVES_QUERY).fetchall())
         unknown_archives = 0
         files_in_lib = list(os.listdir(self._config.libdir()))
-        progress = 50.0/float(len(files_in_lib))
+        progress = 50.0 / float(len(files_in_lib))
         for filename in files_in_lib:
             progress_update(progress)
             if filename.lower().endswith(".zip"):
@@ -173,7 +180,9 @@ class TheLibrary:
                     unknown_archives += 1
         return unknown_archives
 
-    def _count_unknown_entries(self, progress_update: Callable[[float],None]) -> (int, int):
+    def _count_unknown_entries(
+        self, progress_update: Callable[[float], None]
+    ) -> Tuple[int, int]:
         archives = set(self._file_db.execute(ARCHIVES_QUERY).fetchall())
         progress = 50.0 / float(len(archives))
         unknown_entries = 0
@@ -187,31 +196,45 @@ class TheLibrary:
                 with zipfile.ZipFile(archive_path, "r") as zip_archive:
                     for member in zip_archive.namelist():
                         file_id = Path(member).stem
-                        if not self._file_db.execute(FILES_QUERY, (file_id,)).fetchone():
+                        if not self._file_db.execute(
+                            FILES_QUERY, (file_id,)
+                        ).fetchone():
                             unknown_entries += 1
         return unknown_entries, missing_archives
 
-    def validate(self, progress_update: Callable[[float],None]) -> MirrorValidationResult:
+    def validate(
+        self, progress_update: Callable[[float], None]
+    ) -> MirrorValidationResult:
         unknown_archives = self._count_unknown_archives(progress_update)
         unknown_entries, missing_archives = self._count_unknown_entries(progress_update)
-        return MirrorValidationResult(missing_archives, unknown_archives, unknown_entries)
+        return MirrorValidationResult(
+            missing_archives, unknown_archives, unknown_entries
+        )
 
     def get_book(self, book_id: int) -> Optional[BookEntry]:
         book = self._index.get_book(book_id)
         if not book:
             return None
         book_file = self._file_db.execute(FILES_QUERY, (book_id,)).fetchone()
-        return dataclasses.replace(book, filename=book_file[1], ext=book_file[3], archive=book_file[0], filesize=book_file[2])
+        return dataclasses.replace(
+            book,
+            filename=book_file[1],
+            ext=book_file[3],
+            archive=book_file[0],
+            filesize=book_file[2],
+        )
 
     def get_series_name(self, series_id: int) -> Optional[str]:
         return self._file_db.execute(SERIES_NAME_QUERY, (series_id,)).fetchone()[0]
 
-    def get_series(self, series_id :int) -> list[BookEntry]:
+    def get_series(self, series_id: int) -> list[BookEntry]:
         book_ids = self._file_db.execute(SERIES_QUERY, (series_id,)).fetchall()
         return [self.get_book(book_id[0]) for book_id in book_ids]
 
     def get_author_series(self, author_id: int) -> list[int]:
-        series_ids = self._file_db.execute(AUTHORS_SERIES_QUERY, (author_id,)).fetchall()
+        series_ids = self._file_db.execute(
+            AUTHORS_SERIES_QUERY, (author_id,)
+        ).fetchall()
         return [s[0] for s in series_ids]
 
     def get_author_books(self, author_id: int) -> list[BookEntry]:

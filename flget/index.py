@@ -1,4 +1,3 @@
-from audioop import reverse
 from typing import Optional, Callable
 
 import platformdirs
@@ -18,7 +17,9 @@ from inpx import INPX
 
 
 def _open_index(index_name: str, schema: Schema) -> FileIndex:
-    book_index_path = os.path.join(platformdirs.user_cache_dir("flget", ensure_exists=True), "index")
+    book_index_path = os.path.join(
+        platformdirs.user_cache_dir("flget", ensure_exists=True), "index"
+    )
     if not os.path.exists(book_index_path):
         os.makedirs(book_index_path)
     if not index.exists_in(book_index_path, indexname=index_name):
@@ -27,44 +28,80 @@ def _open_index(index_name: str, schema: Schema) -> FileIndex:
         ix = index.open_dir(book_index_path, indexname=index_name)
     return ix
 
+
 def _book_result_to_entry(book_result: Hit) -> BookEntry:
-    return BookEntry(book_result["authors"].split(","), book_result["genres"].split(" "), book_result["title"],
-                     book_result["series"], int(book_result["serno"]), None, None,
-                     book_result["lib_id"], None, None, None, book_result["lang"],
-                     book_result["rating"],
-                     book_result["keywords"].split(","), None)
+    return BookEntry(
+        book_result["authors"].split(","),
+        book_result["genres"].split(" "),
+        book_result["title"],
+        book_result["series"],
+        int(book_result["serno"]),
+        None,
+        None,
+        book_result["lib_id"],
+        None,
+        None,
+        None,
+        book_result["lang"],
+        book_result["rating"],
+        book_result["keywords"].split(","),
+        None,
+    )
 
 
 class BookIndex:
     def __init__(self):
-        self._book_schema = Schema(title=TEXT(analyzer=StemmingAnalyzer(), stored=True), lib_id=ID(stored=True),
-                                   lang=ID(stored=True), rating=NUMERIC(stored=True, sortable=True),
-                                   genres=KEYWORD(stored=True, scorable=True, lowercase=True),
-                                   keywords=KEYWORD(stored=True, scorable=True, lowercase=True, commas=True),
-                                   authors=ID(stored=True), series=ID(stored=True), serno=ID(stored=True))
-        self._author_schema = Schema(author=TEXT(analyzer=StemmingAnalyzer(), stored=True), author_id=ID(stored=True),
-                                     no_books=NUMERIC(stored=True, sortable=True), no_series=NUMERIC(stored=True))
-        self._series_schema = Schema(series=TEXT(analyzer=StemmingAnalyzer(), stored=True), series_id=ID(stored=True),
-                                     no_books=NUMERIC(stored=True, sortable=True), no_authors=NUMERIC(stored=True))
+        self._book_schema = Schema(
+            title=TEXT(analyzer=StemmingAnalyzer(), stored=True),
+            lib_id=ID(stored=True),
+            lang=ID(stored=True),
+            rating=NUMERIC(stored=True, sortable=True),
+            genres=KEYWORD(stored=True, scorable=True, lowercase=True),
+            keywords=KEYWORD(stored=True, scorable=True, lowercase=True, commas=True),
+            authors=ID(stored=True),
+            series=ID(stored=True),
+            serno=ID(stored=True),
+        )
+        self._author_schema = Schema(
+            author=TEXT(analyzer=StemmingAnalyzer(), stored=True),
+            author_id=ID(stored=True),
+            no_books=NUMERIC(stored=True, sortable=True),
+            no_series=NUMERIC(stored=True),
+        )
+        self._series_schema = Schema(
+            series=TEXT(analyzer=StemmingAnalyzer(), stored=True),
+            series_id=ID(stored=True),
+            no_books=NUMERIC(stored=True, sortable=True),
+            no_authors=NUMERIC(stored=True),
+        )
 
         self._book_index = _open_index("book", self._book_schema)
         self._author_index = _open_index("author", self._author_schema)
         self._series_index = _open_index("series", self._series_schema)
 
-    def create_index(self, inpx: INPX, progress__update: Callable[[float],None]):
+    def create_index(self, inpx: INPX, progress__update: Callable[[float], None]):
         a_writer = self._author_index.writer()
         a_writer.commit(mergetype=writing.CLEAR)
         a_writer = self._author_index.writer(procs=32, multisegment=True)
         for author in inpx.authors():
-            a_writer.add_document(author=author.name, author_id=str(author.id), no_books=author.books,
-                                  no_series=author.series)
+            a_writer.add_document(
+                author=author.name,
+                author_id=str(author.id),
+                no_books=author.books,
+                no_series=author.series,
+            )
         a_writer.commit()
 
         s_writer = self._series_index.writer()
         s_writer.commit(mergetype=writing.CLEAR)
         s_writer = self._series_index.writer(procs=32, multisegment=True)
         for s in inpx.series():
-            s_writer.add_document(series=s.name, series_id=str(s.id), no_books=s.books, no_authors=s.authors)
+            s_writer.add_document(
+                series=s.name,
+                series_id=str(s.id),
+                no_books=s.books,
+                no_authors=s.authors,
+            )
         s_writer.commit()
 
         b_writer = self._book_index.writer()
@@ -74,11 +111,17 @@ class BookIndex:
         progress = 50.0 / float(len(inpx.items()))
         for lib_id, book in inpx.items():
             progress__update(progress)
-            b_writer.add_document(title=book.title, lib_id=lib_id, lang=book.lang, rating=book.rating,
-                                  genres=" ".join(book.genres),
-                                  keywords=",".join(book.keywords),
-                                  authors=",".join(book.authors),
-                                  series=book.series, serno=str(book.serno))
+            b_writer.add_document(
+                title=book.title,
+                lib_id=lib_id,
+                lang=book.lang,
+                rating=book.rating,
+                genres=" ".join(book.genres),
+                keywords=",".join(book.keywords),
+                authors=",".join(book.authors),
+                series=book.series,
+                serno=str(book.serno),
+            )
         b_writer.commit()
 
     def search_authors(self, query: str) -> list[AuthorEntry]:
@@ -87,8 +130,14 @@ class BookIndex:
         with self._author_index.searcher() as searcher:
             results = searcher.search(q, limit=None, sortedby="no_books", reverse=True)
             entries = [
-                AuthorEntry(e["author_id"], e["author"], e["no_books"], e["no_series"] if "no_series" in e else "") for
-                e in results]
+                AuthorEntry(
+                    e["author_id"],
+                    e["author"],
+                    e["no_books"],
+                    e["no_series"] if "no_series" in e else "",
+                )
+                for e in results
+            ]
             return entries
 
     def suggest_authors(self, query: str) -> Optional[str]:
@@ -106,7 +155,10 @@ class BookIndex:
         q = qp.parse(query)
         with self._series_index.searcher() as searcher:
             results = searcher.search(q, limit=None, sortedby="no_books", reverse=True)
-            entries = [SeriesEntry(e["series_id"], e["series"], e["no_books"], e["no_authors"]) for e in results]
+            entries = [
+                SeriesEntry(e["series_id"], e["series"], e["no_books"], e["no_authors"])
+                for e in results
+            ]
             return entries
 
     def suggest_series(self, query: str) -> Optional[str]:
@@ -124,8 +176,7 @@ class BookIndex:
         q = qp.parse(query)
         with self._book_index.searcher() as searcher:
             results = searcher.search(q, limit=None, sortedby="rating", reverse=True)
-            entries = [
-                _book_result_to_entry(e) for e in results]
+            entries = [_book_result_to_entry(e) for e in results]
             return entries
 
     def get_book(self, book_id: int) -> Optional[BookEntry]:

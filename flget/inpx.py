@@ -4,8 +4,6 @@ from pathlib import Path
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional, Callable
-from xmlrpc.client import DateTime
-import itertools
 
 
 @dataclass(frozen=True)
@@ -15,12 +13,14 @@ class AuthorEntry:
     books: int
     series: Optional[int]
 
+
 @dataclass(frozen=True)
 class SeriesEntry:
     id: int
     name: str
     books: int
     authors: int
+
 
 @dataclass(frozen=True)
 class BookEntry:
@@ -34,7 +34,7 @@ class BookEntry:
     lib_id: int
     deleted: bool
     ext: str
-    date: DateTime
+    date: datetime
     lang: str
     rating: int
     keywords: list[str]
@@ -69,10 +69,10 @@ class INPX:
 
         self._books = {}
 
-        authors_counter = {}
-        series_counter = {}
-        authors_series_counter = {}
-        series_authors_counter = {}
+        authors_counter: dict[str, int] = {}
+        series_counter: dict[str, int] = {}
+        authors_series_counter: dict[str, int] = {}
+        series_authors_counter: dict[str, int] = {}
         series_author_sentinel = set()
         with zipfile.ZipFile(self._inpx_file, "r") as inpx:
             progress = 100.0 / float(len(inpx.namelist()))
@@ -81,42 +81,73 @@ class INPX:
                 if entry.lower().endswith(".inp"):
                     archive = Path(entry).stem
                     info_raw = inpx.read(entry)
-                    for line in info_raw.split(b'\r\n'):
-                        book_entry = line.split(b'\x04')
+                    for line in info_raw.split(b"\r\n"):
+                        book_entry = line.split(b"\x04")
                         if len(book_entry) == 15:
-                            authors = multi_entry_clean(book_entry[0].decode("UTF-8").split(":"))
+                            authors = multi_entry_clean(
+                                book_entry[0].decode("UTF-8").split(":")
+                            )
                             for author in authors:
-                                authors_counter[author] = authors_counter.get(author, 0) + 1
+                                authors_counter[author] = (
+                                    authors_counter.get(author, 0) + 1
+                                )
 
-                            genres = multi_entry_clean(book_entry[1].decode("UTF-8").split(":"))
+                            genres = multi_entry_clean(
+                                book_entry[1].decode("UTF-8").split(":")
+                            )
                             title = book_entry[2].decode("UTF-8")
 
                             series = book_entry[3].decode("UTF-8")
                             if series:
-                                series_counter[series] = series_counter.get(series, 0) + 1
+                                series_counter[series] = (
+                                    series_counter.get(series, 0) + 1
+                                )
                                 for a in authors:
                                     s_a = (a, series)
                                     if s_a not in series_author_sentinel:
                                         series_author_sentinel.add(s_a)
-                                        authors_series_counter[s_a[0]] = authors_series_counter.get(s_a[0], 0) + 1
-                                        series_authors_counter[s_a[1]] = series_authors_counter.get(s_a[1], 0) + 1
+                                        authors_series_counter[s_a[0]] = (
+                                            authors_series_counter.get(s_a[0], 0) + 1
+                                        )
+                                        series_authors_counter[s_a[1]] = (
+                                            series_authors_counter.get(s_a[1], 0) + 1
+                                        )
                             serno = optional_int_parse(book_entry[4].decode("UTF-8"))
                             filename = book_entry[5].decode("UTF-8")
                             filesize = int(book_entry[6].decode("UTF-8"))
                             libid = int(book_entry[7].decode("UTF-8"))
-                            deleted = book_entry[8].decode("UTF-8") == '1'
+                            deleted = book_entry[8].decode("UTF-8") == "1"
                             ext = book_entry[9].decode("UTF-8")
-                            date = datetime.strptime(book_entry[10].decode("UTF-8"), "%Y-%m-%d")
+                            date = datetime.strptime(
+                                book_entry[10].decode("UTF-8"), "%Y-%m-%d"
+                            )
                             lang = book_entry[11].decode("UTF-8")
                             rating = optional_int_parse(book_entry[12].decode("UTF-8"))
-                            keywords = multi_entry_clean(book_entry[13].decode("UTF-8").split(","))
-                            books_count = BookEntry(authors, genres, title, series, serno, filename, filesize, libid, deleted,
-                                             ext, date, lang, rating, keywords, archive)
+                            keywords = multi_entry_clean(
+                                book_entry[13].decode("UTF-8").split(",")
+                            )
+                            books_count = BookEntry(
+                                authors,
+                                genres,
+                                title,
+                                series,
+                                serno,
+                                filename,
+                                filesize,
+                                libid,
+                                deleted,
+                                ext,
+                                date,
+                                lang,
+                                rating,
+                                keywords,
+                                archive,
+                            )
                             self._books[filename] = books_count
 
         self._authors = []
         self._authors_index = {}
-        for (index,(name, books_count)) in enumerate(authors_counter.items()):
+        for index, (name, books_count) in enumerate(authors_counter.items()):
             if name in authors_series_counter:
                 series_count = authors_series_counter[name]
             else:
@@ -126,7 +157,7 @@ class INPX:
 
         self._series = []
         self._series_index = {}
-        for (index,(name, books_count)) in enumerate(series_counter.items()):
+        for index, (name, books_count) in enumerate(series_counter.items()):
             authors_count = series_authors_counter[name]
             self._series.append(SeriesEntry(index, name, books_count, authors_count))
             self._series_index[name] = index
@@ -140,16 +171,16 @@ class INPX:
     def __len__(self):
         return self._books.__len__()
 
-    def authors(self)->list[AuthorEntry]:
+    def authors(self) -> list[AuthorEntry]:
         return self._authors
 
-    def series(self)->list[SeriesEntry]:
+    def series(self) -> list[SeriesEntry]:
         return self._series
 
-    def series_to_id(self, name: str)-> Optional[int]:
+    def series_to_id(self, name: str) -> Optional[int]:
         return self._series_index.get(name, None)
 
-    def author_to_id(self, name: str)-> Optional[int]:
+    def author_to_id(self, name: str) -> Optional[int]:
         return self._authors_index.get(name, None)
 
     def exists(self, id: str) -> bool:

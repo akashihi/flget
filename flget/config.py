@@ -2,12 +2,13 @@ import os
 import platformdirs
 from tomlkit import load, document, comment, nl, table, dump
 
+
 class Config:
     def __init__(self):
         flget_config_dir = platformdirs.user_config_dir("flget", ensure_exists=True)
-#        if not os.path.exists(flget_config_dir):
-#            os.makedirs(flget_config_dir)
-        flget_config = os.path.join(flget_config_dir, 'flget.toml')
+        #        if not os.path.exists(flget_config_dir):
+        #            os.makedirs(flget_config_dir)
+        flget_config = os.path.join(flget_config_dir, "flget.toml")
 
         self._flget_config = flget_config
 

@@ -52,7 +52,7 @@ class FlTui(App):
     @work
     async def action_save(self) -> None:
         if self._selected_book:
-            await self.push_screen_wait(SaveScreen(self, self._selected_book))
+            await self.push_screen_wait(SaveScreen(self, self._library, self._selected_book))
 
     @on(Input.Changed, "#search-input")
     def on_search_input(self, event: Input.Changed) -> None:

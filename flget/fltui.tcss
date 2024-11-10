@@ -1,3 +1,6 @@
 TabbedContent {
     height: 50%
 }
+TabbedContent ContentSwitcher, DataTable {
+    height: 1fr
+}

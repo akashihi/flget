@@ -5,6 +5,8 @@ from textual.app import App, ComposeResult
 from textual.widgets import Footer, Input, TabbedContent, TabPane, Markdown, DataTable
 
 from config import Config
+from tui_series_tab import SeriesWidget
+from tui_book_table import BookTable
 from inpx import BookEntry
 from tui_save_screen import SaveScreen
 from library import TheLibrary
@@ -21,7 +23,8 @@ class FlTui(App):
         self._config = Config()
         self._library = TheLibrary(self._config)
 
-        self._books_table = DataTable(cursor_type="row", id="books-table")
+        self._books_table = BookTable(widget_id="books-table")
+        self._series_view = SeriesWidget(self._library)
 
         self._book_info = Markdown("Book info")
 
@@ -31,20 +34,16 @@ class FlTui(App):
         yield Input(placeholder="Search...", id="search-input")
 
         with TabbedContent():
-            with TabPane("Books", ):
+            with TabPane("Books", id="tab-books"):
                 yield self._books_table
-            with TabPane("Authors", ):
+            with TabPane("Authors", id="tab-authors"):
                 yield Input(placeholder="Authors...")
-            with TabPane("Series", ):
-                yield Input(placeholder="Series...")
+            with TabPane("Series", id="tab-series"):
+                yield self._series_view
 
         yield self._book_info
 
         yield Footer()
-
-    def on_mount(self) -> None:
-        self._books_table.add_columns("ID", "Title", "Author", "Genres", "Rating", "Keywords", "Language")
-
 
     def action_quit(self) -> None:
         self.exit()
@@ -56,13 +55,14 @@ class FlTui(App):
 
     @on(Input.Changed, "#search-input")
     def on_search_input(self, event: Input.Changed) -> None:
-        results = self._library.search_books(event.value)
-        self._books_table.clear()
-        for result in results:
-            self._books_table.add_row(result.lib_id, result.title, ",".join(result.authors), result.genres,
-                                      result.rating, result.keywords, result.lang, key=str(result.lib_id))
+        if self.query_one(TabbedContent).active == "tab-books":
+            results = self._library.search_books(event.value)
+            self._books_table.populate(results)
+        elif self.query_one(TabbedContent).active == "tab-series":
+            results = self._library.search_series(event.value)
+            self._series_view.populate(results)
 
-    @on(DataTable.RowHighlighted, "#books-table")
+    @on(DataTable.RowHighlighted, "BookTable")
     def on_book_select(self, event: DataTable.RowHighlighted) -> None:
         if event.row_key.value:
             book = self._library.get_book(int(event.row_key.value))

@@ -25,3 +25,4 @@ textual = ">=0.85.2,<0.86"
 [build-dependencies]
 pre-commit = ">=4.0.1,<5"
 types-requests = ">=2.32.0.20241016,<3"
+textual-dev = ">=1.6.1,<2"

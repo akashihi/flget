@@ -5,6 +5,7 @@ from textual.app import App, ComposeResult
 from textual.widgets import Footer, Input, TabbedContent, TabPane, Markdown, DataTable
 
 from config import Config
+from tui_authors_tab import AuthorsWidget
 from tui_series_tab import SeriesWidget
 from tui_book_table import BookTable
 from inpx import BookEntry
@@ -25,6 +26,7 @@ class FlTui(App):
 
         self._books_table = BookTable(widget_id="books-table")
         self._series_view = SeriesWidget(self._library)
+        self._authors_view = AuthorsWidget(self._library)
 
         self._book_info = Markdown("Book info")
 
@@ -37,7 +39,7 @@ class FlTui(App):
             with TabPane("Books", id="tab-books"):
                 yield self._books_table
             with TabPane("Authors", id="tab-authors"):
-                yield Input(placeholder="Authors...")
+                yield self._authors_view
             with TabPane("Series", id="tab-series"):
                 yield self._series_view
 
@@ -61,6 +63,9 @@ class FlTui(App):
         elif self.query_one(TabbedContent).active == "tab-series":
             results = self._library.search_series(event.value)
             self._series_view.populate(results)
+        elif self.query_one(TabbedContent).active == "tab-authors":
+            results = self._library.search_authors(event.value)
+            self._authors_view.populate(results)
 
     @on(DataTable.RowHighlighted, "BookTable")
     def on_book_select(self, event: DataTable.RowHighlighted) -> None:

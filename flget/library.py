@@ -211,25 +211,26 @@ class TheLibrary:
             missing_archives, unknown_archives, unknown_entries
         )
 
-    def get_book(self, book_id: int) -> Optional[BookEntry]:
-        book = self._index.get_book(book_id)
-        if not book:
-            return None
-        book_file = self._file_db.execute(FILES_QUERY, (book_id,)).fetchone()
-        return dataclasses.replace(
-            book,
-            filename=book_file[1],
-            ext=book_file[3],
-            archive=book_file[0],
-            filesize=book_file[2],
-        )
+    def get_books(self, book_ids: list[int]) -> list[BookEntry]:
+        books = self._index.get_books(book_ids)
+        result = []
+        for book in books:
+            book_file = self._file_db.execute(FILES_QUERY, (book.lib_id,)).fetchone()
+            result.append(dataclasses.replace(
+                book,
+                filename=book_file[1],
+                ext=book_file[3],
+                archive=book_file[0],
+                filesize=book_file[2],
+            ))
+        return result
 
     def get_series_name(self, series_id: int) -> Optional[str]:
         return self._file_db.execute(SERIES_NAME_QUERY, (series_id,)).fetchone()[0]
 
     def get_series(self, series_id: int) -> list[BookEntry]:
         book_ids = self._file_db.execute(SERIES_QUERY, (series_id,)).fetchall()
-        return [self.get_book(book_id[0]) for book_id in book_ids]
+        return self.get_books([book_id[0] for book_id in book_ids])
 
     def get_author_series(self, author_id: int) -> list[int]:
         series_ids = self._file_db.execute(
@@ -239,4 +240,4 @@ class TheLibrary:
 
     def get_author_books(self, author_id: int) -> list[BookEntry]:
         book_ids = self._file_db.execute(AUTHORS_BOOKS_QUERY, (author_id,)).fetchall()
-        return [self.get_book(book_id[0]) for book_id in book_ids]
+        return self.get_books([book_id[0] for book_id in book_ids])

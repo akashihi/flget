@@ -144,10 +144,12 @@ def show_book(book_id: int) -> None:
     """
     Show book details
     """
-    book = library.get_book(book_id)
-    if not book:
+    search_result = library.get_books([book_id])
+    if not search_result:
         console.print("Book not found")
         return
+
+    book = search_result[0]
 
     output = Text()
     output.append(f"Authors: {", ".join(book.authors)}\n", style="bold sea_green1")

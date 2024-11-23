@@ -179,10 +179,11 @@ class BookIndex:
             entries = [_book_result_to_entry(e) for e in results]
             return entries
 
-    def get_book(self, book_id: int) -> Optional[BookEntry]:
+    def get_books(self, book_ids: list[int]) -> list[BookEntry]:
+        result = []
         with self._book_index.searcher() as searcher:
-            book = searcher.document(lib_id=str(book_id))
-            if book is None:
-                return None
-            else:
-                return _book_result_to_entry(book)
+            for book_id in book_ids:
+                book = searcher.document(lib_id=str(book_id))
+                if book is not None:
+                    result.append(_book_result_to_entry(book))
+        return result

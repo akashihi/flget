@@ -70,9 +70,13 @@ class FlTui(App):
     @on(DataTable.RowHighlighted, "BookTable")
     def on_book_select(self, event: DataTable.RowHighlighted) -> None:
         if event.row_key.value:
-            book = self._library.get_book(int(event.row_key.value))
-            self._book_info.update(book.title)
-            self._selected_book = book
+            search_result = self._library.get_books([int(event.row_key.value)])
+            if search_result:
+                book = search_result[0]
+                self._book_info.update(book.title)
+                self._selected_book = book
+            else:
+                self._selected_book = None
         else:
             self._selected_book = None
 

@@ -87,6 +87,7 @@ class INPX:
                             authors = multi_entry_clean(
                                 book_entry[0].decode("UTF-8").split(":")
                             )
+                            authors = [author.replace(",", " ") for author in authors]
                             for author in authors:
                                 authors_counter[author] = (
                                     authors_counter.get(author, 0) + 1

@@ -14,5 +14,6 @@ class BookTable(DataTable):
         self.clear()
         for book in books:
             row_key = self.add_row(book.lib_id, book.title, ",".join(book.authors), ",".join(book.genres),
-                                      book.rating, ",".join(book.keywords), book.lang, key=str(book.lib_id))
+                                   book.rating if book.rating > 0 else "", ",".join(book.keywords), book.lang,
+                                   key=str(book.lib_id))
             self.log(row_key)

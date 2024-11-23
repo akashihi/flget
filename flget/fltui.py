@@ -6,6 +6,7 @@ from textual.widgets import Footer, Input, TabbedContent, TabPane, Markdown, Dat
 
 from config import Config
 from tui_authors_tab import AuthorsWidget
+from tui_book_view import BookViewWidget
 from tui_series_tab import SeriesWidget
 from tui_book_table import BookTable
 from inpx import BookEntry
@@ -28,7 +29,7 @@ class FlTui(App):
         self._series_view = SeriesWidget(self._library)
         self._authors_view = AuthorsWidget(self._library)
 
-        self._book_info = Markdown("Book info")
+        self._book_info = BookViewWidget()
 
         self._selected_book:Optional[BookEntry] = None
 
@@ -73,7 +74,7 @@ class FlTui(App):
             search_result = self._library.get_books([int(event.row_key.value)])
             if search_result:
                 book = search_result[0]
-                self._book_info.update(book.title)
+                self._book_info.update(book)
                 self._selected_book = book
             else:
                 self._selected_book = None

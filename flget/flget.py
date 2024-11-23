@@ -3,6 +3,7 @@ from typing import Annotated
 import platformdirs
 import pyfiglet
 import typer
+import humanize
 from rich import box
 from rich.console import Console
 from prompt_toolkit import prompt
@@ -163,7 +164,7 @@ def show_book(book_id: int) -> None:
     output.append(f"Keywords: {", ".join(book.keywords)}\n", style="deep_sky_blue4")
     output.append(f"Language: {book.lang}\n", style="indian_red1")
     output.append(
-        f"{book.filename}.{book.ext} in {config.libdir()}{book.archive}.zip ({book.filesize} bytes)\n",
+        f"{book.filename}.{book.ext} in {config.libdir()}{book.archive}.zip ({humanize.naturalsize(book.filesize, gnu=True)} bytes)\n",
         style="magenta",
     )
     console.print(Panel(output, title=book.title, subtitle=str(book.lib_id)))

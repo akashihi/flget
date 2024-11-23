@@ -25,6 +25,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/frozenlist-1.5.0-py312h66e93f0_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/h2-4.1.0-pyhd8ed1ab_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/hpack-4.0.0-pyh9f0ad1d_0.tar.bz2
+      - conda: https://conda.anaconda.org/conda-forge/noarch/humanize-4.11.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/hyperframe-6.0.1-pyhd8ed1ab_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/identify-2.6.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/idna-3.10-pyhd8ed1ab_0.conda
@@ -417,6 +418,21 @@ packages:
   license_family: MIT
   size: 25341
   timestamp: 1598856368685
+- kind: conda
+  name: humanize
+  version: 4.11.0
+  build: pyhd8ed1ab_0
+  subdir: noarch
+  noarch: python
+  url: https://conda.anaconda.org/conda-forge/noarch/humanize-4.11.0-pyhd8ed1ab_0.conda
+  sha256: aeb87c0a422f5f68930041330ab34a784425e13933ba9fa25b0a9771a704ff66
+  md5: 85b19c6cf705a85845172ade61e05a43
+  depends:
+  - python >=3.9
+  license: MIT
+  license_family: MIT
+  size: 66184
+  timestamp: 1728150052130
 - kind: conda
   name: hyperframe
   version: 6.0.1

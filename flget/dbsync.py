@@ -57,7 +57,7 @@ def decompress_dumps(progress_update: Callable[[float], None]):
         progress_update(progress)
 
 
-def db_import_dumps():
+def db_import_dumps(progress_update: Callable[[float], None]):
     flget_cache_dir = platformdirs.user_cache_dir("flget")
 
     con = mysql.connector.connect(user='root',
@@ -69,7 +69,9 @@ def db_import_dumps():
     con.commit()
     con.close()
 
+    progress = 100.0/len(DB_FILE)
     for file in DB_FILE:
         fname = os.path.join(flget_cache_dir, os.path.splitext(file)[0])
         with open(fname, "rb") as f:
             subprocess.call(["/usr/bin/mysql", "-h", "127.0.0.1", "-u", "root", "--password=mysql", "-D", "flibusta" ], stdin=f)
+            progress_update(progress)

@@ -272,16 +272,20 @@ def sync(force_db_sync : Annotated[bool, typer.Option(help="Skip INPX import.")]
                     progress.update(download_task, advance=advance)
                 get_dumps(task_updater)
             with Progress() as progress:
-                download_task = progress.add_task(
+                decompress_task = progress.add_task(
                     total=100, description="[magenta]Decompressing DB dumps"
                 )
 
                 def task_updater(advance: float) -> None:
-                    progress.update(download_task, advance=advance)
+                    progress.update(decompress_task, advance=advance)
 
                 decompress_dumps(task_updater)
-        with console.status("Importing DB dumps", spinner="shark"):
-            db_import_dumps()
+        with Progress() as progress:
+            import_task = progress.add_task(total=100, description="[green]Importing DB dumps")
+
+            def task_updater(advance: float) -> None:
+                progress.update(import_task, advance=advance)
+            db_import_dumps(task_updater)
 
 
 @app.command()

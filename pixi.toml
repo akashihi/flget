@@ -22,6 +22,7 @@ sqlite = ">=3.47.0,<4"
 types-requests = ">=2.32.0.20241016,<3"
 textual = ">=0.85.2,<0.86"
 humanize = ">=4.11.0,<5"
+mysql-connector-python = ">=9.0.0,<10"
 
 [build-dependencies]
 pre-commit = ">=4.0.1,<5"

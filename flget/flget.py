@@ -13,6 +13,7 @@ from rich.table import Table
 from rich.text import Text
 
 from config import Config
+from dbsync import get_dumps, decompress_dumps, db_import_dumps
 from inpx import BookEntry
 from library import TheLibrary
 from inpx import INPX
@@ -192,75 +193,95 @@ def show_author(author_id: int) -> None:
 
 
 @app.command()
-def sync():
+def sync(force_db_sync : Annotated[bool, typer.Option(help="Skip INPX import.")] = False, skip_download:Annotated[bool, typer.Option(help="Skip DB dump downloading and use existing copy.")] = False) -> None:
     """
     Synchronize the internal database with a library.
 
     Reads INPX file (if provided), DB dump file (if provided), and analyzes content of
     the library mirror. Processed books are indexed into a local database.
+
+    
     """
-    with Progress() as progress:
-        inpx_task = progress.add_task(
-            total=100, description="[spring_green4]INPX import"
-        )
+    db_sync_answer=""
+    if not force_db_sync:
+        with Progress() as progress:
+            inpx_task = progress.add_task(
+                total=100, description="[spring_green4]INPX import"
+            )
 
-        def task_updater(advance: float) -> None:
-            progress.update(inpx_task, advance=advance)
+            def task_updater(advance: float) -> None:
+                progress.update(inpx_task, advance=advance)
 
-        try:
-            inpx = INPX(config.libdir(), task_updater)
-        except FileNotFoundError:
-            error_console.print("INPX file is not available")
-            return
-    console.print(
-        f"Found [spring_green4]{len(inpx)}[/spring_green4] books", style="royal_blue1"
-    )
-
-    with Progress() as progress:
-        index_task = progress.add_task(
-            total=100, description="[spring_green4]Indexing books"
-        )
-
-        def task_updater(advance: float) -> None:
-            progress.update(index_task, advance=advance)
-
-        library.sync(inpx, task_updater)
-
-    with Progress() as progress:
-        mirror_task = progress.add_task(
-            total=100, description="[green]Scanning local mirror"
-        )
-
-        def task_updater(advance: float) -> None:
-            progress.update(mirror_task, advance=advance)
-
-        validation_results = library.validate(task_updater)
-    if validation_results.missing_archives > 0:
+            try:
+                inpx = INPX(config.libdir(), task_updater)
+            except FileNotFoundError:
+                error_console.print("INPX file is not available")
+                return
         console.print(
-            f"Found {validation_results.missing_archives} missing archives, please check your mirror.",
-            style="deep_pink3",
-        )
-    if validation_results.unknown_archives > 0:
-        console.print(
-            f"Found {validation_results.unknown_archives} unknown archives",
-            style="royal_blue1",
-        )
-    if validation_results.unknown_books > 0:
-        console.print(
-            f"Found {validation_results.unknown_books} unknown books",
-            style="royal_blue1",
+            f"Found [spring_green4]{len(inpx)}[/spring_green4] books", style="royal_blue1"
         )
 
-    if validation_results.unknown_archives > 0 and validation_results.unknown_books > 0:
-        db_sync = prompt(
-            "Unknown items found, would you like to sync with a DB dump? (y/N)"
-        )
-    #     if db_sync.lower() == 'y':
-    #         with console.status("Downloading DB dumps", spinner="shark"):
-    #             #get_dumps()
-    #             pass
-    #         with console.status("Importing DB dumps", spinner="shark"):
-    #             db_import_dumps()
+        with Progress() as progress:
+            index_task = progress.add_task(
+                total=100, description="[spring_green4]Indexing books"
+            )
+
+            def task_updater(advance: float) -> None:
+                progress.update(index_task, advance=advance)
+
+            library.sync(inpx, task_updater)
+
+        with Progress() as progress:
+            mirror_task = progress.add_task(
+                total=100, description="[green]Scanning local mirror"
+            )
+
+            def task_updater(advance: float) -> None:
+                progress.update(mirror_task, advance=advance)
+
+            validation_results = library.validate(task_updater)
+        if validation_results.missing_archives > 0:
+            console.print(
+                f"Found {validation_results.missing_archives} missing archives, please check your mirror.",
+                style="deep_pink3",
+            )
+        if validation_results.unknown_archives > 0:
+            console.print(
+                f"Found {validation_results.unknown_archives} unknown archives",
+                style="royal_blue1",
+            )
+        if validation_results.unknown_books > 0:
+            console.print(
+                f"Found {validation_results.unknown_books} unknown books",
+                style="royal_blue1",
+            )
+
+        if validation_results.unknown_archives > 0 and validation_results.unknown_books > 0:
+            db_sync_answer = prompt(
+                "Unknown items found, would you like to sync with a DB dump? (y/N)"
+            )
+
+    if db_sync_answer.lower() == 'y' or force_db_sync:
+        if not skip_download:
+            with Progress() as progress:
+                download_task = progress.add_task(
+                    total=100, description="[magenta]Downloading DB dumps"
+                )
+
+                def task_updater(advance: float) -> None:
+                    progress.update(download_task, advance=advance)
+                get_dumps(task_updater)
+            with Progress() as progress:
+                download_task = progress.add_task(
+                    total=100, description="[magenta]Decompressing DB dumps"
+                )
+
+                def task_updater(advance: float) -> None:
+                    progress.update(download_task, advance=advance)
+
+                decompress_dumps(task_updater)
+        with console.status("Importing DB dumps", spinner="shark"):
+            db_import_dumps()
 
 
 @app.command()

@@ -1,15 +1,17 @@
+import subprocess
 from gzip import GzipFile
-from io import TextIOWrapper
+from typing import Callable
+import shutil
 
 import requests
 import os
 import platformdirs
-import sqlite3
+import mysql.connector
 
 FLIBUSTA_DB_PAGE = "https://flibusta.is/sql/{}"
 DB_FILE = [
-    "lib.libavtor.sql.gz",
     "lib.libtranslator.sql.gz",
+    "lib.libavtor.sql.gz",
     "lib.libavtorname.sql.gz",
     "lib.libbook.sql.gz",
     "lib.libfilename.sql.gz",
@@ -20,6 +22,8 @@ DB_FILE = [
     "lib.librecs.sql.gz",
     "lib.libseqname.sql.gz",
     "lib.libseq.sql.gz",
+    "lib.b.annotations.sql.gz",
+    "lib.b.annotations_pics.sql.gz",
 ]
 
 
@@ -34,18 +38,38 @@ def _download_file(target_dir: str, dump: str) -> str:
     return local_filename
 
 
-def get_dumps():
+def get_dumps(progress_update: Callable[[float], None]):
     flget_cache_dir = platformdirs.user_cache_dir("flget", ensure_exists=True)
-    #    if not os.path.exists(flget_cache_dir):
-    #        os.makedirs(flget_cache_dir)
+    progress = 100.0/len(DB_FILE)
     for file in DB_FILE:
         _download_file(flget_cache_dir, file)
+        progress_update(progress)
+
+
+def decompress_dumps(progress_update: Callable[[float], None]):
+    flget_cache_dir = platformdirs.user_cache_dir("flget", ensure_exists=True)
+    progress = 100.0/len(DB_FILE)
+    for file in DB_FILE:
+        nongz_file = os.path.join(flget_cache_dir, os.path.splitext(file)[0])
+        with GzipFile(os.path.join(flget_cache_dir,file), 'rb') as f_in:
+            with open(nongz_file, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+        progress_update(progress)
 
 
 def db_import_dumps():
     flget_cache_dir = platformdirs.user_cache_dir("flget")
-    tmp_dir = platformdirs.site_runtime_dir("flget", ensure_exists=True)
-    tmp_db_path = os.path.join(tmp_dir, "tmp_db.sqlite3")
-    con = sqlite3.connect(tmp_db_path)
-    with GzipFile("~/.cache/flget/lib.libbook.sql.gz", "r") as dbfile:
-        con.cursor().executescript(TextIOWrapper(dbfile).read())
+
+    con = mysql.connector.connect(user='root',
+                                  password='mysql',
+                                  host='localhost')
+    db_cursor = con.cursor()
+    db_cursor.execute('CREATE DATABASE IF NOT EXISTS flibusta')
+    db_cursor.close()
+    con.commit()
+    con.close()
+
+    for file in DB_FILE:
+        fname = os.path.join(flget_cache_dir, os.path.splitext(file)[0])
+        with open(fname, "rb") as f:
+            subprocess.call(["/usr/bin/mysql", "-h", "127.0.0.1", "-u", "root", "--password=mysql", "-D", "flibusta" ], stdin=f)

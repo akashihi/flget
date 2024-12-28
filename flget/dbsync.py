@@ -11,7 +11,8 @@ import os
 import platformdirs
 import mysql.connector
 
-from mirror import Mirror, BookEntry
+from library import SERIES_QUERY
+from mirror import Mirror, BookEntry, AuthorEntry, SeriesEntry
 
 FLIBUSTA_DB_PAGE = "https://flibusta.is/sql/{}"
 DB_FILE = [
@@ -57,6 +58,24 @@ from libbook as lb
 group by title, filename, filesize, lib_id, ext, year, lang, keywords
 """
 
+AUTHORS_QUERY = """
+select lan.AvtorId                                                 as id,
+       concat_ws(' ', lan.firstname, lan.middlename, lan.lastname) as name,
+       count(distinct la.BookId)                                   as books,
+       count(distinct ls.SeqId)                                    as series
+from libavtorname as lan
+         left join flibusta.libavtor la on lan.AvtorId = la.AvtorId
+         left join flibusta.libseq ls on la.BookId = ls.BookId
+group by id, name
+"""
+
+SERIES_QUERY = """
+select lsn.seqid as id, lsn.seqname as name, count(distinct ls.BookId) as books, count(distinct la.avtorid) as authors
+from libseqname as lsn
+         left join libseq as ls on lsn.SeqId = ls.SeqId
+         left join flibusta.libavtor la on ls.BookId = la.BookId
+group by id, name
+"""
 
 def _download_file(target_dir: str, dump: str) -> str:
     url = FLIBUSTA_DB_PAGE.format(dump)
@@ -146,7 +165,7 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
     db_cursor.execute("SELECT COUNT(*) FROM libbook")
 
     total_books = db_cursor.fetchone()[0]
-    progress = 100.0 / total_books
+    progress = 34.0 / total_books
 
     db_cursor.execute(BOOKS_QUERY)
     books = []
@@ -185,5 +204,29 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
             archive,
         )
         books.append(book)
-    print(f"Found {len(books)} books")
+
+    db_cursor.execute("SELECT COUNT(*) FROM libavtorname")
+
+    total_authors = db_cursor.fetchone()[0]
+    progress = 33.0 / total_authors
+
+    db_cursor.execute(AUTHORS_QUERY)
+    authors = []
+    for (id, name, books, series) in db_cursor:
+        progress_update(progress)
+        author = AuthorEntry(id, name, books, series)
+        authors.append(author)
+
+    db_cursor.execute("SELECT COUNT(*) FROM libseqname")
+
+    total_series = db_cursor.fetchone()[0]
+    progress = 33.0 / total_series
+
+    db_cursor.execute(SERIES_QUERY)
+    series = []
+    for (id, name, books, authors) in db_cursor:
+        progress_update(progress)
+        s = SeriesEntry(id, name, books, series)
+        series.append(s)
+
     con.close()

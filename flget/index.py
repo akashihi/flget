@@ -10,10 +10,10 @@ from whoosh.index import FileIndex
 from whoosh.qparser import QueryParser
 from whoosh.searching import Hit
 
-from inpx import SeriesEntry
-from inpx import AuthorEntry
-from inpx import BookEntry
-from inpx import INPX
+from mirror import SeriesEntry
+from mirror import AuthorEntry
+from mirror import BookEntry
+from mirror import Mirror
 
 
 def _open_index(index_name: str, schema: Schema) -> FileIndex:
@@ -79,11 +79,11 @@ class BookIndex:
         self._author_index = _open_index("author", self._author_schema)
         self._series_index = _open_index("series", self._series_schema)
 
-    def create_index(self, inpx: INPX, progress__update: Callable[[float], None]):
+    def create_index(self, mirror: Mirror, progress__update: Callable[[float], None]):
         a_writer = self._author_index.writer()
         a_writer.commit(mergetype=writing.CLEAR)
         a_writer = self._author_index.writer(procs=32, multisegment=True)
-        for author in inpx.authors():
+        for author in mirror.authors():
             a_writer.add_document(
                 author=author.name,
                 author_id=str(author.id),
@@ -95,7 +95,7 @@ class BookIndex:
         s_writer = self._series_index.writer()
         s_writer.commit(mergetype=writing.CLEAR)
         s_writer = self._series_index.writer(procs=32, multisegment=True)
-        for s in inpx.series():
+        for s in mirror.series():
             s_writer.add_document(
                 series=s.name,
                 series_id=str(s.id),
@@ -108,8 +108,8 @@ class BookIndex:
         b_writer.commit(mergetype=writing.CLEAR)
         b_writer = self._book_index.writer(procs=32, multisegment=True)
 
-        progress = 50.0 / float(len(inpx.items()))
-        for lib_id, book in inpx.items():
+        progress = 50.0 / float(len(mirror.books()))
+        for lib_id, book in mirror.books():
             progress__update(progress)
             b_writer.add_document(
                 title=book.title,

@@ -11,8 +11,9 @@ import sqlite3
 from config import Config
 from inpx import SeriesEntry
 from inpx import AuthorEntry
-from inpx import INPX, BookEntry
+from inpx import BookEntry
 from index import BookIndex
+from mirror import Mirror
 
 FILES_DDL = """
 CREATE TABLE IF NOT EXISTS files (
@@ -118,31 +119,31 @@ class TheLibrary:
         self._file_db.execute(AUTHORS_BOOKS_DDL)
         self._file_db.commit()
 
-    def sync(self, inpx: INPX, progress_update: Callable[[float], None]) -> None:
-        self._index.create_index(inpx, progress_update)
+    def sync(self, mirror: Mirror, progress_update: Callable[[float], None]) -> None:
+        self._index.create_index(mirror, progress_update)
         cur = self._file_db.cursor()
         cur.execute("DELETE FROM files")
         cur.execute("DELETE FROM series")
         cur.execute("DELETE FROM authors_series")
         cur.execute("DELETE FROM authors_books")
 
-        progress = 50.0 / float(len(inpx.items()))
+        progress = 50.0 / float(len(mirror.books()))
 
-        for lib_id, book in inpx.items():
+        for lib_id, book in mirror.books():
             progress_update(progress)
             cur.execute(
                 FILES_UPDATE,
                 (lib_id, book.archive, book.filename, book.filesize, book.ext),
             )
-            series_id = inpx.series_to_id(book.series)
+            series_id = mirror.series_to_id(book.series)
             if series_id:
                 cur.execute(SERIES_UPDATE, (series_id, lib_id, book.serno, book.series))
                 for author in book.authors:
-                    author_id = inpx.author_to_id(author)
+                    author_id = mirror.author_to_id(author)
                     cur.execute(AUTHORS_SERIES_UPDATE, (author_id, series_id))
             else:
                 for author in book.authors:
-                    author_id = inpx.author_to_id(author)
+                    author_id = mirror.author_to_id(author)
                     cur.execute(AUTHORS_BOOKS_UPDATE, (author_id, lib_id))
 
         self._file_db.commit()

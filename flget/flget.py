@@ -14,9 +14,8 @@ from rich.text import Text
 
 from config import Config
 from dbsync import get_dumps, decompress_dumps, db_import_dumps
-from inpx import BookEntry
+from inpx import BookEntry, parse_inpx
 from library import TheLibrary
-from inpx import INPX
 
 app = typer.Typer()
 search_app = typer.Typer()
@@ -218,12 +217,12 @@ def sync(
                 progress.update(inpx_task, advance=advance)
 
             try:
-                inpx = INPX(config.libdir(), task_updater)
+                inpx_mirror = parse_inpx(config.libdir(), task_updater)
             except FileNotFoundError:
                 error_console.print("INPX file is not available")
                 return
         console.print(
-            f"Found [spring_green4]{len(inpx)}[/spring_green4] books",
+            f"Found [spring_green4]{len(inpx_mirror)}[/spring_green4] books",
             style="royal_blue1",
         )
 
@@ -235,7 +234,7 @@ def sync(
             def task_updater(advance: float) -> None:
                 progress.update(index_task, advance=advance)
 
-            library.sync(inpx, task_updater)
+            library.sync(inpx_mirror, task_updater)
 
         with Progress() as progress:
             mirror_task = progress.add_task(

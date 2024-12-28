@@ -31,18 +31,29 @@ class BookViewWidget(Widget):
         title_text = Text(justify="center")
         title_text.append(book.title, style="bold")
         title_text.append(" (YEAR) ")
-        if book.rating >0:
+        if book.rating > 0:
             title_text.append(Emoji.replace(":star:") * book.rating)
         self._title.update(title_text)
 
-        self._author.update(Text(",".join(book.authors), justify="center", style="bold sea_green1"))
+        self._author.update(
+            Text(",".join(book.authors), justify="center", style="bold sea_green1")
+        )
         if book.series:
-            self._series.update(Text(f"{book.series} ({book.serno})", justify="left", style="bold magenta"))
+            self._series.update(
+                Text(
+                    f"{book.series} ({book.serno})",
+                    justify="left",
+                    style="bold magenta",
+                )
+            )
         else:
             self._series.update("")
 
         self._genre.update(Text(",".join(book.genres), style="deep_sky_blue4"))
         self._keywords.update(Text(",".join(book.keywords), style="deep_sky_blue4"))
 
-        file_data = Text(f"{book.filename}.{book.ext} ({humanize.naturalsize(book.filesize, gnu=True)}) Language: {book.lang}", style="magenta")
+        file_data = Text(
+            f"{book.filename}.{book.ext} ({humanize.naturalsize(book.filesize, gnu=True)}) Language: {book.lang}",
+            style="magenta",
+        )
         self._file_data.update(file_data)

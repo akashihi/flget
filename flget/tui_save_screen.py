@@ -1,5 +1,3 @@
-import os
-
 import platformdirs
 from textual import on
 from textual.app import ComposeResult
@@ -13,15 +11,21 @@ from inpx import BookEntry
 
 class SaveScreen(ModalScreen):
     BINDINGS = [("escape", "close", "Close")]
+
     def __init__(self, parent, library: TheLibrary, book: BookEntry):
         super().__init__(parent)
         self._book = book
         self._library = library
-        self._filename_input = Input(id="save-input", value=platformdirs.user_documents_dir())
+        self._filename_input = Input(
+            id="save-input", value=platformdirs.user_documents_dir()
+        )
 
     def compose(self) -> ComposeResult:
         yield Grid(
-            Label(f"Where to save {self._book.filename}.{self._book.ext}?", id="save-question"),
+            Label(
+                f"Where to save {self._book.filename}.{self._book.ext}?",
+                id="save-question",
+            ),
             self._filename_input,
             Button("Save", variant="error", id="save-commit"),
             Button("Cancel", variant="primary", id="save-cancel"),

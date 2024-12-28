@@ -27,7 +27,13 @@ class SeriesWidget(Widget):
     def populate(self, series: list[SeriesEntry]) -> None:
         self._series_table.clear()
         for entry in series:
-            self._series_table.add_row(str(entry.id), entry.name, str(entry.books), str(entry.authors), key=str(entry.id))
+            self._series_table.add_row(
+                str(entry.id),
+                entry.name,
+                str(entry.books),
+                str(entry.authors),
+                key=str(entry.id),
+            )
 
     @on(DataTable.RowHighlighted, "#series-table")
     def on_series_select(self, event: DataTable.RowHighlighted) -> None:

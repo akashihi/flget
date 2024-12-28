@@ -2,7 +2,7 @@ from typing import Optional
 
 from textual import on, work
 from textual.app import App, ComposeResult
-from textual.widgets import Footer, Input, TabbedContent, TabPane, Markdown, DataTable
+from textual.widgets import Footer, Input, TabbedContent, TabPane, DataTable
 
 from config import Config
 from tui_authors_tab import AuthorsWidget
@@ -16,8 +16,12 @@ from library import TheLibrary
 
 class FlTui(App):
     CSS_PATH = "fltui.tcss"
-    BINDINGS = [("ctrl+s", "save", "Save book"), ("ctrl+y", "sync", "Sync mirror"),
-                ("ctrl+o", "options", "Set options"), ("escape", "quit", "Quit")]
+    BINDINGS = [
+        ("ctrl+s", "save", "Save book"),
+        ("ctrl+y", "sync", "Sync mirror"),
+        ("ctrl+o", "options", "Set options"),
+        ("escape", "quit", "Quit"),
+    ]
 
     def __init__(self):
         super().__init__()
@@ -31,7 +35,7 @@ class FlTui(App):
 
         self._book_info = BookViewWidget()
 
-        self._selected_book:Optional[BookEntry] = None
+        self._selected_book: Optional[BookEntry] = None
 
     def compose(self) -> ComposeResult:
         yield Input(placeholder="Search...", id="search-input")
@@ -54,7 +58,9 @@ class FlTui(App):
     @work
     async def action_save(self) -> None:
         if self._selected_book:
-            await self.push_screen_wait(SaveScreen(self, self._library, self._selected_book))
+            await self.push_screen_wait(
+                SaveScreen(self, self._library, self._selected_book)
+            )
 
     @on(Input.Changed, "#search-input")
     def on_search_input(self, event: Input.Changed) -> None:

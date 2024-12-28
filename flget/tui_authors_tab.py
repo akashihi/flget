@@ -28,7 +28,13 @@ class AuthorsWidget(Widget):
         print(authors)
         self._authors_table.clear()
         for entry in authors:
-            self._authors_table.add_row(str(entry.id), entry.name, str(entry.books), str(entry.series), key=str(entry.id))
+            self._authors_table.add_row(
+                str(entry.id),
+                entry.name,
+                str(entry.books),
+                str(entry.series),
+                key=str(entry.id),
+            )
 
     @on(DataTable.RowHighlighted, "#authors-table")
     def on_author_select(self, event: DataTable.RowHighlighted) -> None:

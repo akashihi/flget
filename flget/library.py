@@ -216,13 +216,15 @@ class TheLibrary:
         result = []
         for book in books:
             book_file = self._file_db.execute(FILES_QUERY, (book.lib_id,)).fetchone()
-            result.append(dataclasses.replace(
-                book,
-                filename=book_file[1],
-                ext=book_file[3],
-                archive=book_file[0],
-                filesize=book_file[2],
-            ))
+            result.append(
+                dataclasses.replace(
+                    book,
+                    filename=book_file[1],
+                    ext=book_file[3],
+                    archive=book_file[0],
+                    filesize=book_file[2],
+                )
+            )
         return result
 
     def get_series_name(self, series_id: int) -> Optional[str]:

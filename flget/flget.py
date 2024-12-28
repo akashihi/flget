@@ -193,16 +193,21 @@ def show_author(author_id: int) -> None:
 
 
 @app.command()
-def sync(force_db_sync : Annotated[bool, typer.Option(help="Skip INPX import.")] = False, skip_download:Annotated[bool, typer.Option(help="Skip DB dump downloading and use existing copy.")] = False) -> None:
+def sync(
+    force_db_sync: Annotated[bool, typer.Option(help="Skip INPX import.")] = False,
+    skip_download: Annotated[
+        bool, typer.Option(help="Skip DB dump downloading and use existing copy.")
+    ] = False,
+) -> None:
     """
     Synchronize the internal database with a library.
 
     Reads INPX file (if provided), DB dump file (if provided), and analyzes content of
     the library mirror. Processed books are indexed into a local database.
 
-    
+
     """
-    db_sync_answer=""
+    db_sync_answer = ""
     if not force_db_sync:
         with Progress() as progress:
             inpx_task = progress.add_task(
@@ -218,7 +223,8 @@ def sync(force_db_sync : Annotated[bool, typer.Option(help="Skip INPX import.")]
                 error_console.print("INPX file is not available")
                 return
         console.print(
-            f"Found [spring_green4]{len(inpx)}[/spring_green4] books", style="royal_blue1"
+            f"Found [spring_green4]{len(inpx)}[/spring_green4] books",
+            style="royal_blue1",
         )
 
         with Progress() as progress:
@@ -256,12 +262,15 @@ def sync(force_db_sync : Annotated[bool, typer.Option(help="Skip INPX import.")]
                 style="royal_blue1",
             )
 
-        if validation_results.unknown_archives > 0 and validation_results.unknown_books > 0:
+        if (
+            validation_results.unknown_archives > 0
+            and validation_results.unknown_books > 0
+        ):
             db_sync_answer = prompt(
                 "Unknown items found, would you like to sync with a DB dump? (y/N)"
             )
 
-    if db_sync_answer.lower() == 'y' or force_db_sync:
+    if db_sync_answer.lower() == "y" or force_db_sync:
         if not skip_download:
             with Progress() as progress:
                 download_task = progress.add_task(
@@ -270,6 +279,7 @@ def sync(force_db_sync : Annotated[bool, typer.Option(help="Skip INPX import.")]
 
                 def task_updater(advance: float) -> None:
                     progress.update(download_task, advance=advance)
+
                 get_dumps(task_updater)
             with Progress() as progress:
                 decompress_task = progress.add_task(
@@ -281,10 +291,13 @@ def sync(force_db_sync : Annotated[bool, typer.Option(help="Skip INPX import.")]
 
                 decompress_dumps(task_updater)
         with Progress() as progress:
-            import_task = progress.add_task(total=100, description="[green]Importing DB dumps")
+            import_task = progress.add_task(
+                total=100, description="[green]Importing DB dumps"
+            )
 
             def task_updater(advance: float) -> None:
                 progress.update(import_task, advance=advance)
+
             db_import_dumps(task_updater)
 
 

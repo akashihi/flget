@@ -13,7 +13,7 @@ from rich.table import Table
 from rich.text import Text
 
 from config import Config
-from dbsync import get_dumps, decompress_dumps, db_import_dumps
+from dbsync import get_dumps, decompress_dumps, db_import_dumps, build_mirror
 from inpx import BookEntry, parse_inpx
 from library import TheLibrary
 
@@ -297,7 +297,17 @@ def sync(
             def task_updater(advance: float) -> None:
                 progress.update(import_task, advance=advance)
 
-            db_import_dumps(task_updater)
+            #db_import_dumps(task_updater)
+
+        with Progress() as progress:
+            mirror_task = progress.add_task(
+                total=100, description="[spring_green4]Preparing mirror information"
+            )
+
+            def task_updater(advance: float) -> None:
+                progress.update(mirror_task, advance=advance)
+
+            build_mirror(config.libdir(), task_updater)
 
 
 @app.command()

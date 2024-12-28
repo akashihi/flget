@@ -1,12 +1,17 @@
 import subprocess
 from gzip import GzipFile
-from typing import Callable
+from os import listdir
+from os.path import isfile, join
+from typing import Callable, Dict
 import shutil
+from zipfile import ZipFile
 
 import requests
 import os
 import platformdirs
 import mysql.connector
+
+from mirror import Mirror, BookEntry
 
 FLIBUSTA_DB_PAGE = "https://flibusta.is/sql/{}"
 DB_FILE = [
@@ -32,22 +37,24 @@ select GROUP_CONCAT(distinct concat_ws(' ', lan.firstname, lan.middlename, lan.l
        lb.title                                                                           as title,
        GROUP_CONCAT(DISTINCT lsn.seqname ORDER BY ls.seqid)                               as series,
        GROUP_CONCAT(DISTINCT ls.SeqNumb ORDER BY ls.seqid)                                as serno,
+       lfn.filename                                                                       as filename,
        lb.FileSize                                                                        as filesize,
        lb.BookId                                                                          as lib_id,
        lb.FileType                                                                        as ext,
-       date(str_to_date(lb.Time, '%Y-%m-%d %H:%m:%s'))                                    as date,
+       date(str_to_date(lb.Time, '%Y-%m-%d %H:%m:%s'))                                    as year,
        lb.Lang                                                                            as lang,
-       CEIL(AVG(lr.Rate))                                                                 as rating
+       CEIL(AVG(lr.Rate))                                                                 as rating,
+       lb.keywords                                                                        as keywords
 from libbook as lb
-         join libavtor as la on lb.BookId = la.BookId
-         join libavtorname as lan on lan.AvtorId = la.AvtorId
-         join libgenre as lg on lg.BookId = lb.BookId
-         join libgenrelist as lgl on lgl.GenreId = lg.GenreId
-         join libseq as ls on ls.BookId = lb.BookId
-         join libseqname as lsn on lsn.SeqId = ls.SeqId
-         join librate as lr on lr.BookId = lb.BookId
-where lb.Deleted != false
-group by title, filesize, lib_id, ext, date, lang
+         left join libavtor as la on lb.BookId = la.BookId
+         left join libavtorname as lan on lan.AvtorId = la.AvtorId
+         left join libgenre as lg on lg.BookId = lb.BookId
+         left join libgenrelist as lgl on lgl.GenreId = lg.GenreId
+         left join libseq as ls on ls.BookId = lb.BookId
+         left join libseqname as lsn on lsn.SeqId = ls.SeqId
+         left join librate as lr on lr.BookId = lb.BookId
+         left join libfilename as lfn on lfn.BookId = lb.BookId
+group by title, filename, filesize, lib_id, ext, year, lang, keywords
 """
 
 
@@ -111,5 +118,72 @@ def db_import_dumps(progress_update: Callable[[float], None]):
             progress_update(progress)
 
 
-def extract_books():
-    pass
+def _build_archives_map(lib_dir: str) -> Dict[str, str]:
+    archives_map = {}
+    archive = [f for f in listdir(lib_dir) if isfile(join(lib_dir, f)) and f.lower().endswith(".zip")]
+    for a in archive:
+        with ZipFile(os.path.join(lib_dir, a), "r") as z:
+            for file in z.namelist():
+                archives_map[file] = a
+    return archives_map
+
+def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror:
+    archives_map = _build_archives_map(lib_dir)
+    con = mysql.connector.connect(user="root", password="mysql", host="localhost", database="flibusta")
+    db_cursor = con.cursor()
+    db_cursor.execute("ALTER TABLE libavtorname MODIFY firstname VARCHAR(255) NULL")
+    db_cursor.execute("ALTER TABLE libavtorname MODIFY middlename VARCHAR(255) NULL")
+    db_cursor.execute("""UPDATE
+        libavtorname
+    SET
+        firstname = CASE firstname WHEN '' THEN NULL ELSE firstname END,
+        middlename = CASE middlename WHEN '' THEN NULL ELSE middlename END
+    """)
+    db_cursor.close()
+    con.commit()
+
+    db_cursor = con.cursor()
+    db_cursor.execute("SELECT COUNT(*) FROM libbook")
+
+    total_books = db_cursor.fetchone()[0]
+    progress = 100.0 / total_books
+
+    db_cursor.execute(BOOKS_QUERY)
+    books = []
+    for (authors,genres,title,series,serno,filename,filesize,libid,ext, year,lang,rating, keywords) in db_cursor:
+        progress_update(progress)
+
+        if ext.lower() == "fb2":
+            full_filename = f"{libid}.fb2"
+            if full_filename not in archives_map:
+                continue
+            archive = archives_map[full_filename]
+            filename = libid
+        elif filename:
+            if filename not in archives_map:
+                archive = ""
+            else:
+                archive = archives_map[filename]
+        else:
+            pass
+
+        book = BookEntry(
+            authors,
+            genres,
+            title,
+            series,
+            serno,
+            filename,
+            filesize,
+            libid,
+            False,
+            ext,
+            year,
+            lang,
+            rating,
+            keywords,
+            archive,
+        )
+        books.append(book)
+    print(f"Found {len(books)} books")
+    con.close()

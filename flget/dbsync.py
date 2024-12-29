@@ -77,6 +77,7 @@ from libseqname as lsn
 group by id, name
 """
 
+
 def _download_file(target_dir: str, dump: str) -> str:
     url = FLIBUSTA_DB_PAGE.format(dump)
     local_filename = os.path.join(target_dir, url.split("/")[-1])
@@ -146,6 +147,7 @@ def _build_archives_map(lib_dir: str) -> Dict[str, str]:
                 archives_map[file] = a
     return archives_map
 
+
 def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror:
     archives_map = _build_archives_map(lib_dir)
     con = mysql.connector.connect(user="root", password="mysql", host="localhost", database="flibusta")
@@ -169,7 +171,8 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
 
     db_cursor.execute(BOOKS_QUERY)
     books = []
-    for (authors,genres,title,series,serno,filename,filesize,libid,ext, year,lang,rating, keywords) in db_cursor:
+    for (
+    authors, genres, title, series, serno, filename, filesize, libid, ext, year, lang, rating, keywords) in db_cursor:
         progress_update(progress)
 
         if ext.lower() == "fb2":
@@ -230,3 +233,5 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
         series.append(s)
 
     con.close()
+
+    return Mirror(books, series, authors, {}, {})

@@ -1,4 +1,4 @@
-from dbsync import get_dumps, decompress_dumps, build_mirror
+from dbsync import get_dumps, decompress_dumps, build_mirror, db_import_dumps
 from library import TheLibrary
 from rich.progress import Progress
 
@@ -8,6 +8,47 @@ from config import Config
 from inpx import parse_inpx
 from rich.console import Console
 
+
+def validate_mirror(library):
+    with Progress() as progress:
+        mirror_task = progress.add_task(
+            total=100, description="[green]Scanning local mirror"
+        )
+
+        def task_updater(advance: float) -> None:
+            progress.update(mirror_task, advance=advance)
+
+        validation_results = library.validate(task_updater)
+    return validation_results
+
+
+def report_validation_results(console, validation_results):
+    if validation_results.missing_archives > 0:
+        console.print(
+            f"Found {validation_results.missing_archives} missing archives, please check your mirror.",
+            style="deep_pink3",
+        )
+    if validation_results.unknown_archives > 0:
+        console.print(
+            f"Found {validation_results.unknown_archives} unknown archives",
+            style="royal_blue1",
+        )
+    if validation_results.unknown_books > 0:
+        console.print(
+            f"Found {validation_results.unknown_books} unknown books",
+            style="royal_blue1",
+        )
+
+def index_books(inpx_mirror, library):
+    with Progress() as progress:
+        index_task = progress.add_task(
+            total=100, description="[spring_green4]Indexing books"
+        )
+
+        def task_updater(advance: float) -> None:
+            progress.update(index_task, advance=advance)
+
+        library.sync(inpx_mirror, task_updater)
 
 def mirror_sync(
         force_db_sync: bool,
@@ -45,40 +86,10 @@ def mirror_sync(
             style="royal_blue1",
         )
 
-        with Progress() as progress:
-            index_task = progress.add_task(
-                total=100, description="[spring_green4]Indexing books"
-            )
+        index_books(inpx_mirror, library)
 
-            def task_updater(advance: float) -> None:
-                progress.update(index_task, advance=advance)
-
-            library.sync(inpx_mirror, task_updater)
-
-        with Progress() as progress:
-            mirror_task = progress.add_task(
-                total=100, description="[green]Scanning local mirror"
-            )
-
-            def task_updater(advance: float) -> None:
-                progress.update(mirror_task, advance=advance)
-
-            validation_results = library.validate(task_updater)
-        if validation_results.missing_archives > 0:
-            console.print(
-                f"Found {validation_results.missing_archives} missing archives, please check your mirror.",
-                style="deep_pink3",
-            )
-        if validation_results.unknown_archives > 0:
-            console.print(
-                f"Found {validation_results.unknown_archives} unknown archives",
-                style="royal_blue1",
-            )
-        if validation_results.unknown_books > 0:
-            console.print(
-                f"Found {validation_results.unknown_books} unknown books",
-                style="royal_blue1",
-            )
+        validation_results = validate_mirror(library)
+        report_validation_results(console, validation_results)
 
         if (
                 validation_results.unknown_archives > 0
@@ -116,7 +127,7 @@ def mirror_sync(
             def task_updater(advance: float) -> None:
                 progress.update(import_task, advance=advance)
 
-            # db_import_dumps(task_updater)
+            #db_import_dumps(task_updater)
 
         with Progress() as progress:
             mirror_task = progress.add_task(
@@ -131,3 +142,7 @@ def mirror_sync(
                 f"Found [spring_green4]{len(db_mirror)}[/spring_green4] books",
                 style="royal_blue1",
             )
+
+        index_books(db_mirror, library)
+        validation_results = validate_mirror(library)
+        report_validation_results(console, validation_results)

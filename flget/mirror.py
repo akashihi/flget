@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict
 
 
 @dataclass(frozen=True)
@@ -41,7 +41,7 @@ class BookEntry:
 class Mirror:
     def __init__(
         self,
-        books: list[BookEntry],
+        books: Dict[str,BookEntry],
         series: list[SeriesEntry],
         authors: list[AuthorEntry],
         series_index: dict[str, int],
@@ -62,7 +62,7 @@ class Mirror:
     def series(self) -> list[SeriesEntry]:
         return self._series
 
-    def books(self):
+    def books(self) -> list[BookEntry]:
         return self._books.items()
 
     def series_to_id(self, name: str) -> Optional[int]:

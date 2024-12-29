@@ -126,4 +126,4 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
         series.append(SeriesEntry(index, name, books_count, authors_count))
         series_index[name] = index
 
-    return Mirror(books, series_names, authors, series_index, authors_index)
+    return Mirror(books.items(), series_names, authors, series_index, authors_index)

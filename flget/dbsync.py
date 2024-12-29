@@ -170,7 +170,7 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
     progress = 34.0 / total_books
 
     db_cursor.execute(BOOKS_QUERY)
-    books = []
+    books = {}
     for (
     authors, genres, title, series, serno, filename, filesize, libid, ext, year, lang, rating, keywords) in db_cursor:
         progress_update(progress)
@@ -187,26 +187,26 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
             else:
                 archive = archives_map[filename]
         else:
-            pass
+            continue
 
         book = BookEntry(
-            authors,
-            genres,
+            authors.split(",") if authors else [],
+            genres.split(",") if genres else [],
             title,
             series,
             serno,
             filename,
             filesize,
-            libid,
+            str(libid),
             False,
             ext,
-            year,
+            str(year),
             lang,
             rating,
             keywords,
             archive,
         )
-        books.append(book)
+        books[str(libid)]=book
 
     db_cursor.execute("SELECT COUNT(*) FROM libavtorname")
 
@@ -215,9 +215,9 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
 
     db_cursor.execute(AUTHORS_QUERY)
     authors = []
-    for (id, name, books, series) in db_cursor:
+    for (id, name, books_no, series_no) in db_cursor:
         progress_update(progress)
-        author = AuthorEntry(id, name, books, series)
+        author = AuthorEntry(id, name, books_no, series_no)
         authors.append(author)
 
     db_cursor.execute("SELECT COUNT(*) FROM libseqname")
@@ -227,9 +227,9 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
 
     db_cursor.execute(SERIES_QUERY)
     series = []
-    for (id, name, books, authors) in db_cursor:
+    for (id, name, books_no, authors_no) in db_cursor:
         progress_update(progress)
-        s = SeriesEntry(id, name, books, series)
+        s = SeriesEntry(id, name, books_no, authors_no)
         series.append(s)
 
     con.close()

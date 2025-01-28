@@ -44,11 +44,10 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
         for entry in inpx.namelist():
             progress_update(progress)
             if entry.lower().endswith(".inp"):
-                archive = Path(entry).stem
                 info_raw = inpx.read(entry)
                 for line in info_raw.split(b"\r\n"):
                     book_entry = line.split(b"\x04")
-                    if len(book_entry) == 15:
+                    if len(book_entry) == 15 or len(book_entry) == 17:
                         authors = multi_entry_clean(
                             book_entry[0].decode("UTF-8").split(":")
                         )
@@ -85,11 +84,21 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
                         date = datetime.strptime(
                             book_entry[10].decode("UTF-8"), "%Y-%m-%d"
                         )
-                        lang = book_entry[11].decode("UTF-8")
-                        rating = optional_int_parse(book_entry[12].decode("UTF-8"))
-                        keywords = multi_entry_clean(
-                            book_entry[13].decode("UTF-8").split(",")
-                        )
+                        if len(book_entry) == 15:
+                            archive = Path(entry).stem
+                            lang = book_entry[11].decode("UTF-8")
+                            rating = optional_int_parse(book_entry[12].decode("UTF-8"))
+                            keywords = multi_entry_clean(
+                                book_entry[13].decode("UTF-8").split(",")
+                            )
+                        else: # 17 fields INPX
+                            archive = book_entry[12].decode("UTF-8")
+                            lang = book_entry[13].decode("UTF-8")
+                            rating = optional_int_parse(book_entry[14].decode("UTF-8"))
+                            keywords = multi_entry_clean(
+                                book_entry[15].decode("UTF-8").split(",")
+                            )
+
                         books_count = BookEntry(
                             authors,
                             genres,
@@ -107,7 +116,7 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
                             keywords,
                             archive,
                         )
-                        books[filename] = books_count
+                        books[str(libid)] = books_count
 
     authors = []
     authors_index = {}
@@ -126,4 +135,4 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
         series.append(SeriesEntry(index, name, books_count, authors_count))
         series_index[name] = index
 
-    return Mirror(books.items(), series_names, authors, series_index, authors_index)
+    return Mirror(books, series, authors, series_index, authors_index)

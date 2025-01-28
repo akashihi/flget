@@ -170,27 +170,30 @@ class TheLibrary:
             archive.extract(f"{book_file[1]}.{book_file[3]}", target_path)
 
     def _count_unknown_archives(self, progress_update: Callable[[float], None]) -> int:
-        archives = set(self._file_db.execute(ARCHIVES_QUERY).fetchall())
+        archives = set(x[0] for x in self._file_db.execute(ARCHIVES_QUERY).fetchall())
         unknown_archives = 0
         files_in_lib = list(os.listdir(self._config.libdir()))
         progress = 50.0 / float(len(files_in_lib))
         for filename in files_in_lib:
             progress_update(progress)
             if filename.lower().endswith(".zip"):
-                if Path(filename.lower()).stem not in archives:
+                if Path(filename.lower()).stem not in archives and filename.lower() not in archives:
                     unknown_archives += 1
         return unknown_archives
 
     def _count_unknown_entries(
         self, progress_update: Callable[[float], None]
     ) -> Tuple[int, int]:
-        archives = set(self._file_db.execute(ARCHIVES_QUERY).fetchall())
+        archives = set(x[0] for x in self._file_db.execute(ARCHIVES_QUERY).fetchall())
         progress = 50.0 / float(len(archives))
         unknown_entries = 0
         missing_archives = 0
         for archive in archives:
             progress_update(progress)
-            archive_path = os.path.join(self._config.libdir(), f"{archive[0]}.zip")
+            if archive.lower().endswith(".zip"):
+                archive_path = os.path.join(self._config.libdir(), archive)
+            else:
+                archive_path = os.path.join(self._config.libdir(), f"{archive}.zip")
             if not Path(archive_path).exists():
                 missing_archives += 1
             else:

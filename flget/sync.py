@@ -9,7 +9,7 @@ from inpx import parse_inpx
 from rich.console import Console
 
 
-def validate_mirror(library):
+def validate_mirror(library: TheLibrary):
     with Progress() as progress:
         mirror_task = progress.add_task(
             total=100, description="[green]Scanning local mirror"

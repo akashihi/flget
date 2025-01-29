@@ -165,7 +165,10 @@ class TheLibrary:
 
     def save(self, book_id: int, target_path: str) -> None:
         book_file = self._file_db.execute(FILES_QUERY, (book_id,)).fetchone()
-        zippath = os.path.join(self._config.libdir(), f"{book_file[0]}.zip")
+        if book_file[0].lower().endswith(".zip"):
+            zippath = os.path.join(self._config.libdir(), book_file[0])
+        else:
+            zippath = os.path.join(self._config.libdir(), f"{book_file[0]}.zip")
         with zipfile.ZipFile(zippath, "r") as archive:
             archive.extract(f"{book_file[1]}.{book_file[3]}", target_path)
 

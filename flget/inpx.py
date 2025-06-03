@@ -4,7 +4,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Callable
 
-from mirror import BookEntry, AuthorEntry, SeriesEntry, Mirror
+from mirror import BookEntry, AuthorEntry, SeriesEntry, Mirror, SeriesBookLink
 
 
 def multi_entry_clean(input: list[str]) -> list[str]:
@@ -135,4 +135,9 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
         series.append(SeriesEntry(index, name, books_count, authors_count))
         series_index[name] = index
 
-    return Mirror(books, series, authors, series_index, authors_index)
+    series_link = []
+    for book in filter(lambda b : b[1].series, books.items()):
+        series_link.append(SeriesBookLink(series_index.get(book[1].series),book[1].lib_id, book[1].serno, book[1].series))
+
+
+    return Mirror(books, series, authors, series_link, authors_index)

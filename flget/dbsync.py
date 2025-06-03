@@ -12,7 +12,7 @@ import platformdirs
 import mysql.connector
 
 from library import SERIES_QUERY
-from mirror import Mirror, BookEntry, AuthorEntry, SeriesEntry
+from mirror import Mirror, BookEntry, AuthorEntry, SeriesEntry, SeriesBookLink
 
 FLIBUSTA_DB_PAGE = "https://flibusta.is/sql/{}"
 DB_FILE = [
@@ -77,6 +77,9 @@ from libseqname as lsn
 group by id, name
 """
 
+SERIES_BOOKS_QUERY = """
+select libseq.SeqId,BookId,SeqNumb,SeqName from libseq join libseqname on libseqname.SeqId=libseq.SeqId
+"""
 
 def _download_file(target_dir: str, dump: str) -> str:
     url = FLIBUSTA_DB_PAGE.format(dump)
@@ -151,18 +154,18 @@ def _build_archives_map(lib_dir: str) -> Dict[str, str]:
 def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror:
     archives_map = _build_archives_map(lib_dir)
     con = mysql.connector.connect(user="root", password="mysql", host="localhost", database="flibusta")
-    db_cursor = con.cursor()
-    db_cursor.execute("ALTER TABLE libavtorname MODIFY firstname VARCHAR(255) NULL")
-    db_cursor.execute("ALTER TABLE libavtorname MODIFY middlename VARCHAR(255) NULL")
-    db_cursor.execute("""UPDATE
-        libavtorname
-    SET
-        firstname = CASE firstname WHEN '' THEN NULL ELSE firstname END,
-        middlename = CASE middlename WHEN '' THEN NULL ELSE middlename END
-    """)
-    db_cursor.close()
-    con.commit()
-
+    # db_cursor = con.cursor()
+    # db_cursor.execute("ALTER TABLE libavtorname MODIFY firstname VARCHAR(255) NULL")
+    # db_cursor.execute("ALTER TABLE libavtorname MODIFY middlename VARCHAR(255) NULL")
+    # db_cursor.execute("""UPDATE
+    #     libavtorname
+    # SET
+    #     firstname = CASE firstname WHEN '' THEN NULL ELSE firstname END,
+    #     middlename = CASE middlename WHEN '' THEN NULL ELSE middlename END
+    # """)
+    # db_cursor.close()
+    # con.commit()
+    #
     db_cursor = con.cursor()
     db_cursor.execute("SELECT COUNT(*) FROM libbook")
 
@@ -232,6 +235,11 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
         s = SeriesEntry(id, name, books_no, authors_no)
         series.append(s)
 
+    db_cursor.execute(SERIES_BOOKS_QUERY)
+    series_index = []
+    for (id, book_id, serno, series_name) in db_cursor:
+        series_index.append(SeriesBookLink(id, book_id, serno, series_name))
+
     con.close()
 
-    return Mirror(books, series, authors, {}, {})
+    return Mirror(books, series, authors, series_index, {})

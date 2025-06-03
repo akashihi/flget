@@ -19,7 +19,7 @@ FILES_DDL = """
 CREATE TABLE IF NOT EXISTS files (
 lib_id INTEGER PRIMARY KEY,
 archive TEXT NOT NULL,
-file TEXT NOT NULL UNIQUE,
+file TEXT NOT NULL,
 filesize INTEGER NOT NULL,
 ext TEXT NOT NULL 
 )
@@ -135,16 +135,16 @@ class TheLibrary:
                 FILES_UPDATE,
                 (lib_id, book.archive, book.filename, book.filesize, book.ext),
             )
-            series_id = mirror.series_to_id(book.series)
-            if series_id:
-                cur.execute(SERIES_UPDATE, (series_id, lib_id, book.serno, book.series))
-                for author in book.authors:
-                    author_id = mirror.author_to_id(author)
-                    cur.execute(AUTHORS_SERIES_UPDATE, (author_id, series_id))
-            else:
+            if not book.series:
                 for author in book.authors:
                     author_id = mirror.author_to_id(author)
                     cur.execute(AUTHORS_BOOKS_UPDATE, (author_id, lib_id))
+
+        for series_book in mirror.series_books():
+            cur.execute(SERIES_UPDATE, (series_book.series_id, series_book.book_id, series_book.serno, series_book.series_name))
+            #for author in book.authors:
+            #    author_id = mirror.author_to_id(author)
+            #    cur.execute(AUTHORS_SERIES_UPDATE, (author_id, series_id))
 
         self._file_db.commit()
 

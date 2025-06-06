@@ -136,15 +136,13 @@ class TheLibrary:
                 (lib_id, book.archive, book.filename, book.filesize, book.ext),
             )
             if not book.series:
-                for author in book.authors:
-                    author_id = mirror.author_to_id(author)
+                for author_id in book.authors:
                     cur.execute(AUTHORS_BOOKS_UPDATE, (author_id, lib_id))
 
         for series_book in mirror.series_books():
             cur.execute(SERIES_UPDATE, (series_book.series_id, series_book.book_id, series_book.serno, series_book.series_name))
-            #for author in book.authors:
-            #    author_id = mirror.author_to_id(author)
-            #    cur.execute(AUTHORS_SERIES_UPDATE, (author_id, series_id))
+        #    for author_id in book.authors:
+        #        cur.execute(AUTHORS_SERIES_UPDATE, (author_id, series_book.series_id))
 
         self._file_db.commit()
 

@@ -33,28 +33,29 @@ DB_FILE = [
 ]
 
 BOOKS_QUERY = """
-select GROUP_CONCAT(distinct concat_ws(' ', lan.firstname, lan.middlename, lan.lastname)) as authors,
-       GROUP_CONCAT(distinct lgl.GenreCode)                                               as genres,
-       lb.title                                                                           as title,
-       GROUP_CONCAT(DISTINCT lsn.seqname ORDER BY ls.seqid)                               as series,
-       GROUP_CONCAT(DISTINCT ls.SeqNumb ORDER BY ls.seqid)                                as serno,
-       lfn.filename                                                                       as filename,
-       lb.FileSize                                                                        as filesize,
-       lb.BookId                                                                          as lib_id,
-       lb.FileType                                                                        as ext,
-       date(str_to_date(lb.Time, '%Y-%m-%d %H:%m:%s'))                                    as year,
-       lb.Lang                                                                            as lang,
-       CEIL(AVG(lr.Rate))                                                                 as rating,
-       lb.keywords                                                                        as keywords
+select GROUP_CONCAT(distinct la.AvtorId) as authors, 
+    GROUP_CONCAT(distinct concat_ws(' ', lan.firstname, lan.middlename, lan.lastname)) as author_names,
+    GROUP_CONCAT(distinct lgl.GenreCode)                                               as genres,
+    lb.title                                                                           as title,
+    GROUP_CONCAT(DISTINCT lsn.seqname ORDER BY ls.seqid)                               as series,
+    GROUP_CONCAT(DISTINCT ls.SeqNumb ORDER BY ls.seqid)                                as serno,
+    lfn.filename                                                                       as filename,
+    lb.FileSize                                                                        as filesize,
+    lb.BookId                                                                          as lib_id,
+    lb.FileType                                                                        as ext,
+    date(str_to_date(lb.Time, '%Y-%m-%d %H:%m:%s'))                                    as year,
+    lb.Lang                                                                            as lang,
+    CEIL(AVG(lr.Rate))                                                                 as rating,
+    lb.keywords                                                                        as keywords
 from libbook as lb
-         left join libavtor as la on lb.BookId = la.BookId
-         left join libavtorname as lan on lan.AvtorId = la.AvtorId
-         left join libgenre as lg on lg.BookId = lb.BookId
-         left join libgenrelist as lgl on lgl.GenreId = lg.GenreId
-         left join libseq as ls on ls.BookId = lb.BookId
-         left join libseqname as lsn on lsn.SeqId = ls.SeqId
-         left join librate as lr on lr.BookId = lb.BookId
-         left join libfilename as lfn on lfn.BookId = lb.BookId
+    left join libavtor as la on lb.BookId = la.BookId
+    left join libavtorname as lan on lan.AvtorId = la.AvtorId
+    left join libgenre as lg on lg.BookId = lb.BookId
+    left join libgenrelist as lgl on lgl.GenreId = lg.GenreId
+    left join libseq as ls on ls.BookId = lb.BookId
+    left join libseqname as lsn on lsn.SeqId = ls.SeqId
+    left join librate as lr on lr.BookId = lb.BookId
+    left join libfilename as lfn on lfn.BookId = lb.BookId
 group by title, filename, filesize, lib_id, ext, year, lang, keywords
 """
 
@@ -175,7 +176,7 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
     db_cursor.execute(BOOKS_QUERY)
     books = {}
     for (
-    authors, genres, title, series, serno, filename, filesize, libid, ext, year, lang, rating, keywords) in db_cursor:
+    authors, author_names, genres, title, series, serno, filename, filesize, libid, ext, year, lang, rating, keywords) in db_cursor:
         progress_update(progress)
 
         if ext.lower() == "fb2":
@@ -194,6 +195,7 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
 
         book = BookEntry(
             authors.split(",") if authors else [],
+            author_names.split(",") if authors else [],
             genres.split(",") if genres else [],
             title,
             series,
@@ -242,4 +244,4 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
 
     con.close()
 
-    return Mirror(books, series, authors, series_index, {})
+    return Mirror(books, series, authors, series_index)

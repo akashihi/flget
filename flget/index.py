@@ -32,6 +32,7 @@ def _open_index(index_name: str, schema: Schema) -> FileIndex:
 def _book_result_to_entry(book_result: Hit) -> BookEntry:
     return BookEntry(
         book_result["authors"].split(","),
+        [],
         book_result["genres"].split(" "),
         book_result["title"],
         book_result["series"],
@@ -118,7 +119,7 @@ class BookIndex:
                 rating=book.rating,
                 genres=" ".join(book.genres),
                 keywords=",".join(book.keywords),
-                authors=",".join(book.authors),
+                authors=",".join(book.author_names),
                 series=book.series,
                 serno=str(book.serno),
             )

@@ -1,3 +1,4 @@
+import dataclasses
 import os
 import zipfile
 from pathlib import Path
@@ -101,6 +102,7 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
 
                         books_count = BookEntry(
                             authors,
+                            [],
                             genres,
                             title,
                             series_names,
@@ -128,6 +130,9 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
         authors.append(AuthorEntry(index, name, books_count, series_count))
         authors_index[name] = index
 
+    for book_id,book in books.items():
+        books[book_id] = dataclasses.replace(book, authors = list(map(lambda x: authors_index[x], book.authors)), author_names = book.authors)
+
     series = []
     series_index = {}
     for index, (name, books_count) in enumerate(series_counter.items()):
@@ -140,4 +145,4 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
         series_link.append(SeriesBookLink(series_index.get(book[1].series),book[1].lib_id, book[1].serno, book[1].series))
 
 
-    return Mirror(books, series, authors, series_link, authors_index)
+    return Mirror(books, series, authors, series_link)

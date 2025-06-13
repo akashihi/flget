@@ -37,15 +37,15 @@ select GROUP_CONCAT(distinct la.AvtorId) as authors,
     GROUP_CONCAT(distinct concat_ws(' ', lan.firstname, lan.middlename, lan.lastname)) as author_names,
     GROUP_CONCAT(distinct lgl.GenreCode)                                               as genres,
     lb.title                                                                           as title,
-    GROUP_CONCAT(DISTINCT lsn.seqname ORDER BY ls.seqid)                               as series,
-    GROUP_CONCAT(DISTINCT ls.SeqNumb ORDER BY ls.seqid)                                as serno,
+    COALESCE(GROUP_CONCAT(DISTINCT lsn.seqname ORDER BY ls.seqid), '')                 as series,
+    COALESCE(GROUP_CONCAT(DISTINCT ls.SeqNumb ORDER BY ls.seqid), '-1')                as serno,
     lfn.filename                                                                       as filename,
     lb.FileSize                                                                        as filesize,
     lb.BookId                                                                          as lib_id,
     lb.FileType                                                                        as ext,
     date(str_to_date(lb.Time, '%Y-%m-%d %H:%m:%s'))                                    as year,
     lb.Lang                                                                            as lang,
-    CEIL(AVG(lr.Rate))                                                                 as rating,
+    COALESCE(CEIL(AVG(lr.Rate)), -1)                                                   as rating,
     lb.keywords                                                                        as keywords
 from libbook as lb
     left join libavtor as la on lb.BookId = la.BookId
@@ -79,7 +79,11 @@ group by id, name
 """
 
 SERIES_BOOKS_QUERY = """
-select libseq.SeqId,BookId,SeqNumb,SeqName from libseq join libseqname on libseqname.SeqId=libseq.SeqId
+                     select libseq.SeqId, libseq.BookId, SeqNumb, SeqName, group_concat(distinct AvtorId) as authors
+                     from libseq
+                              join libseqname on libseqname.SeqId = libseq.SeqId
+                              join libavtor on libavtor.BookId = libseq.BookId
+                     group by libseq.SeqId, libseq.BookId, SeqNumb, SeqName
 """
 
 def _download_file(target_dir: str, dump: str) -> str:
@@ -239,8 +243,8 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
 
     db_cursor.execute(SERIES_BOOKS_QUERY)
     series_index = []
-    for (id, book_id, serno, series_name) in db_cursor:
-        series_index.append(SeriesBookLink(id, book_id, serno, series_name))
+    for (id, book_id, serno, series_name, series_authors) in db_cursor:
+        series_index.append(SeriesBookLink(id, book_id, serno, series_name, series_authors.split(",")))
 
     con.close()
 

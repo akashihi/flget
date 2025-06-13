@@ -141,8 +141,8 @@ class TheLibrary:
 
         for series_book in mirror.series_books():
             cur.execute(SERIES_UPDATE, (series_book.series_id, series_book.book_id, series_book.serno, series_book.series_name))
-        #    for author_id in book.authors:
-        #        cur.execute(AUTHORS_SERIES_UPDATE, (author_id, series_book.series_id))
+            for author_id in series_book.authors:
+                cur.execute(AUTHORS_SERIES_UPDATE, (author_id, series_book.series_id))
 
         self._file_db.commit()
 

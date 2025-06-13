@@ -45,6 +45,7 @@ class SeriesBookLink:
     book_id: int
     serno: int
     series_name: str
+    authors: list[str]
 
 class Mirror:
     def __init__(

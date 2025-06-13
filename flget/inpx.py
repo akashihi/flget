@@ -142,7 +142,7 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
 
     series_link = []
     for book in filter(lambda b : b[1].series, books.items()):
-        series_link.append(SeriesBookLink(series_index.get(book[1].series),book[1].lib_id, book[1].serno, book[1].series))
+        series_link.append(SeriesBookLink(series_index.get(book[1].series),book[1].lib_id, book[1].serno, book[1].series, book[1].authors))
 
 
     return Mirror(books, series, authors, series_link)

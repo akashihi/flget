@@ -112,8 +112,9 @@ class BookIndex:
         progress = 50.0 / float(len(mirror.books()))
         for lib_id, book in mirror.books():
             progress__update(progress)
+            clean_title = book.title.replace("[/", "[_/")
             b_writer.add_document(
-                title=book.title,
+                title=clean_title,
                 lib_id=lib_id,
                 lang=book.lang,
                 rating=book.rating,

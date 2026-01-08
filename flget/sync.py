@@ -30,7 +30,7 @@ def report_validation_results(console, validation_results):
         )
     if validation_results.unknown_archives > 0:
         console.print(
-            f"Found {validation_results.unknown_archives} unknown archives",
+            f"Found {validation_results.unknown_archives}  book(s) with unknown archives",
             style="royal_blue1",
         )
     if validation_results.unknown_books > 0:
@@ -127,7 +127,7 @@ def mirror_sync(
             def task_updater(advance: float) -> None:
                 progress.update(import_task, advance=advance)
 
-            #db_import_dumps(task_updater)
+            db_import_dumps(task_updater)
 
         with Progress() as progress:
             mirror_task = progress.add_task(

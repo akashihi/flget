@@ -179,6 +179,7 @@ class TheLibrary:
             progress_update(progress)
             if filename.lower().endswith(".zip"):
                 if Path(filename.lower()).stem not in archives and filename.lower() not in archives:
+                    print(filename)
                     unknown_archives += 1
         return unknown_archives
 

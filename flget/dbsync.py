@@ -153,6 +153,7 @@ def _build_archives_map(lib_dir: str) -> Dict[str, str]:
         with ZipFile(os.path.join(lib_dir, a), "r") as z:
             for file in z.namelist():
                 archives_map[file] = a
+                archives_map[file.encode("utf-8").decode("cp437")] = a
     return archives_map
 
 
@@ -191,11 +192,16 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
             filename = libid
         elif filename:
             if filename not in archives_map:
-                archive = ""
+                continue
             else:
                 archive = archives_map[filename]
         else:
-            continue
+            filename = f"{libid}.{ext}"
+            if filename not in archives_map:
+                filename = f"{filename}.zip"
+                if filename not in archives_map:
+                    continue
+            archive = archives_map[filename]
 
         book = BookEntry(
             authors.split(",") if authors else [],

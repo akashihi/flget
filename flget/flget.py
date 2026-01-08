@@ -1,3 +1,4 @@
+import typing
 from typing import Annotated
 
 import platformdirs
@@ -194,10 +195,8 @@ def show_author(author_id: int) -> None:
 
 @app.command()
 def sync(
-    force_db_sync: Annotated[bool, typer.Option(help="Skip INPX import.")] = False,
-    skip_download: Annotated[
-        bool, typer.Option(help="Skip DB dump downloading and use existing copy.")
-    ] = False,
+    force_db_sync: Annotated[bool, typer.Option(is_flag=True, help="Skip INPX import.")]=False,
+    skip_download: Annotated[bool, typer.Option(help="Skip DB dump downloading and use existing copy.")]=False,
 ) -> None:
     """
     Synchronize the internal database with a library.

@@ -25,6 +25,10 @@ ext TEXT NOT NULL
 )
 """
 
+FILES_INDEX = """
+CREATE INDEX files_file ON files(file)
+"""
+
 SERIES_DDL = """
 CREATE TABLE IF NOT EXISTS series (
 series_id INTEGER NOT NULL ,
@@ -56,6 +60,10 @@ PRIMARY KEY(author_id, lib_id)
 
 ARCHIVES_QUERY = """
 SELECT DISTINCT archive from files 
+"""
+
+FILES_BY_NAME_QUERY = """
+SELECT archive, file, filesize, ext FROM files where file=? 
 """
 
 FILES_QUERY = """
@@ -114,6 +122,7 @@ class TheLibrary:
 
         # Pre-create tables
         self._file_db.execute(FILES_DDL)
+        self._file_db.execute(FILES_INDEX)
         self._file_db.execute(SERIES_DDL)
         self._file_db.execute(AUTHORS_SERIES_DDL)
         self._file_db.execute(AUTHORS_BOOKS_DDL)
@@ -205,7 +214,10 @@ class TheLibrary:
                         if not self._file_db.execute(
                             FILES_QUERY, (file_id,)
                         ).fetchone():
-                            unknown_entries += 1
+                            if not self._file_db.execute(
+                                    FILES_BY_NAME_QUERY, (member,)
+                            ).fetchone():
+                                unknown_entries += 1
         return unknown_entries, missing_archives
 
     def validate(

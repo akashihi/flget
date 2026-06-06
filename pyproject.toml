@@ -1,0 +1,55 @@
+[project]
+name = "flget"
+version = "0.1.0"
+description = "Local Flibusta mirror search tool"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pyfiglet>=0.8.post1,<0.9",
+    "platformdirs>=4.3.6,<5",
+    "typer==0.12.5",
+    # typer 0.12.5 predates click 8.2's CLI-parsing changes; keep click compatible.
+    "click>=8.0,<8.2",
+    "tomlkit>=0.13.2,<0.14",
+    "prompt_toolkit>=3.0.48,<4",
+    "requests>=2.32.3,<3",
+    "whoosh>=2.7.4,<3",
+    "textual>=0.85.2,<0.86",
+    "humanize>=4.11.0,<5",
+    "mysql-connector-python>=9.0.0,<10",
+    # pyfiglet 0.8.post1 imports pkg_resources at runtime but does not declare it;
+    # provide it via setuptools <81 (81 dropped the bundled pkg_resources module).
+    "setuptools>=70,<81",
+]
+
+[project.scripts]
+flget = "flget.flget:main"
+fltui = "flget.fltui:main"
+
+[dependency-groups]
+# Versions kept in lockstep with .pre-commit-config.yaml so `uv run` and the
+# pre-commit hooks lint/format identically.
+dev = [
+    "ruff==0.7.3",
+    "mypy",
+    "codespell==2.2.4",
+    "pre-commit>=4",
+    "textual-dev>=1.6.1,<2",
+    "types-requests>=2.32.0.20241016,<3",
+]
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+# Flat layout: the `flget` package sits next to pyproject.toml (no src/ dir).
+module-root = ""
+module-name = "flget"
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.mypy]
+python_version = "3.12"
+files = ["flget"]

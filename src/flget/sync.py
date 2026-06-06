@@ -1,11 +1,11 @@
-from dbsync import get_dumps, decompress_dumps, build_mirror, db_import_dumps
-from library import TheLibrary
+from flget.dbsync import get_dumps, decompress_dumps, build_mirror, db_import_dumps
+from flget.library import TheLibrary
 from rich.progress import Progress
 
 from prompt_toolkit import prompt
 
-from config import Config
-from inpx import parse_inpx
+from flget.config import Config
+from flget.inpx import parse_inpx
 from rich.console import Console
 
 

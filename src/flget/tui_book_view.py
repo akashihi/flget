@@ -5,7 +5,7 @@ from rich.text import Text
 from rich.emoji import Emoji
 import humanize
 
-from inpx import BookEntry
+from flget.inpx import BookEntry
 
 
 class BookViewWidget(Widget):

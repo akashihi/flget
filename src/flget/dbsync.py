@@ -11,8 +11,8 @@ import os
 import platformdirs
 import mysql.connector
 
-from library import SERIES_QUERY
-from mirror import Mirror, BookEntry, AuthorEntry, SeriesEntry, SeriesBookLink
+from flget.library import SERIES_QUERY
+from flget.mirror import Mirror, BookEntry, AuthorEntry, SeriesEntry, SeriesBookLink
 
 FLIBUSTA_DB_PAGE = "https://flibusta.is/sql/{}"
 DB_FILE = [

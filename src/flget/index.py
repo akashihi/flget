@@ -10,10 +10,10 @@ from whoosh.index import FileIndex
 from whoosh.qparser import QueryParser
 from whoosh.searching import Hit
 
-from mirror import SeriesEntry
-from mirror import AuthorEntry
-from mirror import BookEntry
-from mirror import Mirror
+from flget.mirror import SeriesEntry
+from flget.mirror import AuthorEntry
+from flget.mirror import BookEntry
+from flget.mirror import Mirror
 
 
 def _open_index(index_name: str, schema: Schema) -> FileIndex:

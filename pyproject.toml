@@ -41,15 +41,11 @@ dev = [
 [build-system]
 requires = ["uv_build>=0.11,<0.12"]
 build-backend = "uv_build"
-
-[tool.uv.build-backend]
-# Flat layout: the `flget` package sits next to pyproject.toml (no src/ dir).
-module-root = ""
-module-name = "flget"
+# src layout (src/flget) is uv_build's default, so no [tool.uv.build-backend] override needed.
 
 [tool.ruff]
 target-version = "py312"
 
 [tool.mypy]
 python_version = "3.12"
-files = ["flget"]
+files = ["src/flget"]

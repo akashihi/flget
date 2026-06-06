@@ -8,12 +8,12 @@ from typing import Callable, Optional, Tuple
 import platformdirs
 import sqlite3
 
-from config import Config
-from inpx import SeriesEntry
-from inpx import AuthorEntry
-from inpx import BookEntry
-from index import BookIndex
-from mirror import Mirror
+from flget.config import Config
+from flget.inpx import SeriesEntry
+from flget.inpx import AuthorEntry
+from flget.inpx import BookEntry
+from flget.index import BookIndex
+from flget.mirror import Mirror
 
 FILES_DDL = """
 CREATE TABLE IF NOT EXISTS files (
@@ -26,7 +26,7 @@ ext TEXT NOT NULL
 """
 
 FILES_INDEX = """
-CREATE INDEX files_file ON files(file)
+CREATE INDEX IF NOT EXISTS files_file ON files(file)
 """
 
 SERIES_DDL = """

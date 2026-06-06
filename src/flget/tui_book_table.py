@@ -1,6 +1,6 @@
 from textual.widgets import DataTable
 
-from inpx import BookEntry
+from flget.inpx import BookEntry
 
 
 class BookTable(DataTable):

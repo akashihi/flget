@@ -4,14 +4,14 @@ from textual import on, work
 from textual.app import App, ComposeResult
 from textual.widgets import Footer, Input, TabbedContent, TabPane, DataTable
 
-from config import Config
-from tui_authors_tab import AuthorsWidget
-from tui_book_view import BookViewWidget
-from tui_series_tab import SeriesWidget
-from tui_book_table import BookTable
-from inpx import BookEntry
-from tui_save_screen import SaveScreen
-from library import TheLibrary
+from flget.config import Config
+from flget.tui_authors_tab import AuthorsWidget
+from flget.tui_book_view import BookViewWidget
+from flget.tui_series_tab import SeriesWidget
+from flget.tui_book_table import BookTable
+from flget.inpx import BookEntry
+from flget.tui_save_screen import SaveScreen
+from flget.library import TheLibrary
 
 
 class FlTui(App):
@@ -88,6 +88,10 @@ class FlTui(App):
             self._selected_book = None
 
 
-if __name__ == "__main__":
+def main():
     app = FlTui()
     app.run()
+
+
+if __name__ == "__main__":
+    main()

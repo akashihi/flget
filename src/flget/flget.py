@@ -13,11 +13,11 @@ from rich.progress import Progress
 from rich.table import Table
 from rich.text import Text
 
-from config import Config
-from dbsync import get_dumps, decompress_dumps, db_import_dumps, build_mirror
-from inpx import BookEntry, parse_inpx
-from library import TheLibrary
-from sync import mirror_sync
+from flget.config import Config
+from flget.dbsync import get_dumps, decompress_dumps, db_import_dumps, build_mirror
+from flget.inpx import BookEntry, parse_inpx
+from flget.library import TheLibrary
+from flget.sync import mirror_sync
 
 app = typer.Typer()
 search_app = typer.Typer()

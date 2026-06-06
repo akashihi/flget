@@ -3,9 +3,9 @@ from textual.app import ComposeResult
 from textual.widget import Widget
 from textual.widgets import DataTable
 
-from library import TheLibrary
-from inpx import SeriesEntry
-from tui_book_table import BookTable
+from flget.library import TheLibrary
+from flget.inpx import SeriesEntry
+from flget.tui_book_table import BookTable
 
 
 class SeriesWidget(Widget):

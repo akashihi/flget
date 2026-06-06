@@ -5,7 +5,7 @@ from pathlib import Path
 from datetime import datetime
 from typing import Callable
 
-from mirror import BookEntry, AuthorEntry, SeriesEntry, Mirror, SeriesBookLink
+from flget.mirror import BookEntry, AuthorEntry, SeriesEntry, Mirror, SeriesBookLink
 
 
 def multi_entry_clean(input: list[str]) -> list[str]:

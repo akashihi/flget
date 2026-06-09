@@ -196,7 +196,7 @@ def show_author(author_id: int) -> None:
 @app.command()
 def sync(
     force_db_sync: Annotated[bool, typer.Option(is_flag=True, help="Skip INPX import.")]=False,
-    skip_download: Annotated[bool, typer.Option(help="Skip DB dump downloading and use existing copy.")]=False,
+    force_download: Annotated[bool, typer.Option(help="Ignore cached metadata and re-download all DB dumps.")]=False,
 ) -> None:
     """
     Synchronize the internal database with a library.
@@ -206,7 +206,7 @@ def sync(
 
 
     """
-    mirror_sync(force_db_sync, skip_download, config, library, console, error_console)
+    mirror_sync(force_db_sync, force_download, config, library, console, error_console)
 
 
 @app.command()

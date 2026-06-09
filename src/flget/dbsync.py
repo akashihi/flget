@@ -1,8 +1,9 @@
+import json
 import subprocess
 from gzip import GzipFile
 from os import listdir
 from os.path import isfile, join
-from typing import Callable, Dict
+from typing import Any, Callable, Dict
 import shutil
 from zipfile import ZipFile
 
@@ -86,22 +87,65 @@ SERIES_BOOKS_QUERY = """
                      group by libseq.SeqId, libseq.BookId, SeqNumb, SeqName
 """
 
-def _download_file(target_dir: str, dump: str) -> str:
+
+def _meta_path(cache_dir: str) -> str:
+    return os.path.join(cache_dir, "dumps_meta.json")
+
+
+def _load_meta(cache_dir: str) -> Dict[str, Any]:
+    try:
+        with open(_meta_path(cache_dir), "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _save_meta(cache_dir: str, meta: Dict[str, Any]) -> None:
+    with open(_meta_path(cache_dir), "w") as f:
+        json.dump(meta, f)
+
+
+def _download_file(
+    target_dir: str, dump: str, meta: Dict[str, Any], force: bool = False
+) -> str:
     url = FLIBUSTA_DB_PAGE.format(dump)
     local_filename = os.path.join(target_dir, url.split("/")[-1])
-    with requests.get(url, stream=True) as r:
+
+    headers: Dict[str, str] = {}
+    entry = meta.get(dump)
+    if not force and entry and os.path.isfile(local_filename):
+        size = entry.get("size")
+        # Only trust the cached validators when the local file is intact.
+        if size is None or os.path.getsize(local_filename) == size:
+            if entry.get("etag"):
+                headers["If-None-Match"] = entry["etag"]
+            if entry.get("last_modified"):
+                headers["If-Modified-Since"] = entry["last_modified"]
+
+    with requests.get(url, stream=True, headers=headers) as r:
         r.raise_for_status()
+        if r.status_code == 304:
+            return local_filename
+        written = 0
         with open(local_filename, "wb") as f:
             for chunk in r.iter_content(chunk_size=1048576):
                 f.write(chunk)
+                written += len(chunk)
+        meta[dump] = {
+            "etag": r.headers.get("ETag"),
+            "last_modified": r.headers.get("Last-Modified"),
+            "size": written,
+        }
     return local_filename
 
 
-def get_dumps(progress_update: Callable[[float], None]):
+def get_dumps(progress_update: Callable[[float], None], force: bool = False):
     flget_cache_dir = platformdirs.user_cache_dir("flget", ensure_exists=True)
+    meta = _load_meta(flget_cache_dir)
     progress = 100.0 / len(DB_FILE)
     for file in DB_FILE:
-        _download_file(flget_cache_dir, file)
+        _download_file(flget_cache_dir, file, meta, force=force)
+        _save_meta(flget_cache_dir, meta)
         progress_update(progress)
 
 

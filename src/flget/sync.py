@@ -52,7 +52,7 @@ def index_books(inpx_mirror, library):
 
 def mirror_sync(
         force_db_sync: bool,
-        skip_download: bool,
+        force_download: bool,
         config: Config,
         library: TheLibrary,
         console: Console,
@@ -93,32 +93,31 @@ def mirror_sync(
 
         if (
                 validation_results.unknown_archives > 0
-                and validation_results.unknown_books > 0
+                or validation_results.unknown_books > 0
         ):
             db_sync_answer = prompt(
                 "Unknown items found, would you like to sync with a DB dump? (y/N)"
             )
 
     if db_sync_answer.lower() == "y" or force_db_sync:
-        if not skip_download:
-            with Progress() as progress:
-                download_task = progress.add_task(
-                    total=100, description="[magenta]Downloading DB dumps"
-                )
+        with Progress() as progress:
+            download_task = progress.add_task(
+                total=100, description="[magenta]Downloading DB dumps"
+            )
 
-                def task_updater(advance: float) -> None:
-                    progress.update(download_task, advance=advance)
+            def task_updater(advance: float) -> None:
+                progress.update(download_task, advance=advance)
 
-                get_dumps(task_updater)
-            with Progress() as progress:
-                decompress_task = progress.add_task(
-                    total=100, description="[magenta]Decompressing DB dumps"
-                )
+            get_dumps(task_updater, force=force_download)
+        with Progress() as progress:
+            decompress_task = progress.add_task(
+                total=100, description="[magenta]Decompressing DB dumps"
+            )
 
-                def task_updater(advance: float) -> None:
-                    progress.update(decompress_task, advance=advance)
+            def task_updater(advance: float) -> None:
+                progress.update(decompress_task, advance=advance)
 
-                decompress_dumps(task_updater)
+            decompress_dumps(task_updater)
         with Progress() as progress:
             import_task = progress.add_task(
                 total=100, description="[green]Importing DB dumps"

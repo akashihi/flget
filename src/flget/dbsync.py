@@ -1,18 +1,18 @@
 import json
-import subprocess
+import math
+import sqlite3
 from gzip import GzipFile
 from os import listdir
 from os.path import isfile, join
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, List, Optional
 import shutil
 from zipfile import ZipFile
 
 import requests
 import os
 import platformdirs
-import mysql.connector
 
-from flget.library import SERIES_QUERY
+from flget.mysqldump import load_dump
 from flget.mirror import Mirror, BookEntry, AuthorEntry, SeriesEntry, SeriesBookLink
 
 FLIBUSTA_DB_PAGE = "https://flibusta.is/sql/{}"
@@ -38,13 +38,13 @@ select GROUP_CONCAT(distinct la.AvtorId) as authors,
     GROUP_CONCAT(distinct concat_ws(' ', lan.firstname, lan.middlename, lan.lastname)) as author_names,
     GROUP_CONCAT(distinct lgl.GenreCode)                                               as genres,
     lb.title                                                                           as title,
-    COALESCE(GROUP_CONCAT(DISTINCT lsn.seqname ORDER BY ls.seqid), '')                 as series,
-    COALESCE(GROUP_CONCAT(DISTINCT ls.SeqNumb ORDER BY ls.seqid), '-1')                as serno,
+    COALESCE(ordered_concat(lsn.seqname, ls.seqid), '')                                as series,
+    COALESCE(ordered_concat(ls.SeqNumb, ls.seqid), '-1')                               as serno,
     lfn.filename                                                                       as filename,
     lb.FileSize                                                                        as filesize,
     lb.BookId                                                                          as lib_id,
     lb.FileType                                                                        as ext,
-    date(str_to_date(lb.Time, '%Y-%m-%d %H:%m:%s'))                                    as year,
+    substr(lb.Time, 1, 10)                                                             as year,
     lb.Lang                                                                            as lang,
     COALESCE(CEIL(AVG(lr.Rate)), -1)                                                   as rating,
     lb.keywords                                                                        as keywords
@@ -66,8 +66,8 @@ select lan.AvtorId                                                 as id,
        count(distinct la.BookId)                                   as books,
        count(distinct ls.SeqId)                                    as series
 from libavtorname as lan
-         left join flibusta.libavtor la on lan.AvtorId = la.AvtorId
-         left join flibusta.libseq ls on la.BookId = ls.BookId
+         left join libavtor la on lan.AvtorId = la.AvtorId
+         left join libseq ls on la.BookId = ls.BookId
 group by id, name
 """
 
@@ -75,7 +75,7 @@ SERIES_QUERY = """
 select lsn.seqid as id, lsn.seqname as name, count(distinct ls.BookId) as books, count(distinct la.avtorid) as authors
 from libseqname as lsn
          left join libseq as ls on lsn.SeqId = ls.SeqId
-         left join flibusta.libavtor la on ls.BookId = la.BookId
+         left join libavtor la on ls.BookId = la.BookId
 group by id, name
 """
 
@@ -86,6 +86,74 @@ SERIES_BOOKS_QUERY = """
                               join libavtor on libavtor.BookId = libseq.BookId
                      group by libseq.SeqId, libseq.BookId, SeqNumb, SeqName
 """
+
+
+# Indexes on the columns the four Mirror queries join on. Built once after
+# import; without them the multi-table joins degrade to full scans. The dumps'
+# own keys are not recreated -- only these matter for our queries.
+_JOIN_INDEXES = [
+    ("libavtor", "BookId"),
+    ("libavtor", "AvtorId"),
+    ("libgenre", "BookId"),
+    ("libgenre", "GenreId"),
+    ("libgenrelist", "GenreId"),
+    ("libseq", "BookId"),
+    ("libseq", "SeqId"),
+    ("libseqname", "SeqId"),
+    ("librate", "BookId"),
+    ("libfilename", "BookId"),
+    ("libbook", "BookId"),
+    ("libavtorname", "AvtorId"),
+]
+
+
+def _db_path(cache_dir: str) -> str:
+    return os.path.join(cache_dir, "flibusta.db")
+
+
+def _concat_ws(sep: str, *args: Any) -> str:
+    """MySQL CONCAT_WS: join the non-NULL arguments with ``sep``."""
+    return sep.join(str(a) for a in args if a is not None)
+
+
+def _ceil(value: Any) -> Any:
+    """MySQL CEIL, NULL-safe (so COALESCE around it still fires)."""
+    return None if value is None else math.ceil(value)
+
+
+class _OrderedConcat:
+    """Aggregate replacing MySQL ``GROUP_CONCAT(DISTINCT v ORDER BY k)``.
+
+    SQLite's built-in ``group_concat`` cannot order its output, so we collect
+    ``(sortkey, value)`` pairs, sort by the key, drop duplicate values and
+    comma-join. Returns NULL when empty so the surrounding COALESCE applies.
+    """
+
+    def __init__(self) -> None:
+        self._items: List[Any] = []
+
+    def step(self, *values: Any) -> None:
+        value, sortkey = values
+        if value is not None:
+            self._items.append((sortkey, value))
+
+    def finalize(self) -> Optional[str]:
+        seen = set()
+        out = []
+        for _, value in sorted(self._items, key=lambda x: (x[0] is None, x[0])):
+            text = str(value)
+            if text not in seen:
+                seen.add(text)
+                out.append(text)
+        return ",".join(out) if out else None
+
+
+def _register_functions(con: sqlite3.Connection) -> None:
+    con.create_function("concat_ws", -1, _concat_ws)
+    con.create_function("ceil", 1, _ceil)
+    # typeshed's _AggregateProtocol only models single-argument aggregates, so
+    # it cannot express this 2-arg (value, sortkey) aggregate.
+    con.create_aggregate("ordered_concat", 2, _OrderedConcat)  # type: ignore[arg-type]
 
 
 def _meta_path(cache_dir: str) -> str:
@@ -162,37 +230,41 @@ def decompress_dumps(progress_update: Callable[[float], None]):
 
 def db_import_dumps(progress_update: Callable[[float], None]):
     flget_cache_dir = platformdirs.user_cache_dir("flget")
+    db_path = _db_path(flget_cache_dir)
 
-    con = mysql.connector.connect(user="root", password="mysql", host="localhost")
-    db_cursor = con.cursor()
-    db_cursor.execute("CREATE DATABASE IF NOT EXISTS flibusta")
-    db_cursor.close()
-    con.commit()
-    con.close()
+    # Rebuild the staging DB from scratch every sync -- it is a throwaway
+    # representation of the dumps, not durable data.
+    if os.path.exists(db_path):
+        os.remove(db_path)
+
+    con = sqlite3.connect(db_path)
+    # This is a one-shot bulk load into a disposable file, so trade durability
+    # for speed.
+    con.execute("PRAGMA journal_mode=OFF")
+    con.execute("PRAGMA synchronous=OFF")
 
     progress = 100.0 / len(DB_FILE)
     for file in DB_FILE:
         fname = os.path.join(flget_cache_dir, os.path.splitext(file)[0])
-        with open(fname, "rb") as f:
-            subprocess.call(
-                [
-                    "/usr/bin/mysql",
-                    "-h",
-                    "127.0.0.1",
-                    "-u",
-                    "root",
-                    "--password=mysql",
-                    "-D",
-                    "flibusta",
-                ],
-                stdin=f,
-            )
-            progress_update(progress)
+        load_dump(con, fname)
+        con.commit()
+        progress_update(progress)
+
+    for table, column in _JOIN_INDEXES:
+        con.execute(
+            f'CREATE INDEX IF NOT EXISTS "ix_{table}_{column}" ON "{table}"("{column}")'
+        )
+    con.commit()
+    con.close()
 
 
 def _build_archives_map(lib_dir: str) -> Dict[str, str]:
     archives_map = {}
-    archive = [f for f in listdir(lib_dir) if isfile(join(lib_dir, f)) and f.lower().endswith(".zip")]
+    archive = [
+        f
+        for f in listdir(lib_dir)
+        if isfile(join(lib_dir, f)) and f.lower().endswith(".zip")
+    ]
     for a in archive:
         with ZipFile(os.path.join(lib_dir, a), "r") as z:
             for file in z.namelist():
@@ -203,19 +275,10 @@ def _build_archives_map(lib_dir: str) -> Dict[str, str]:
 
 def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror:
     archives_map = _build_archives_map(lib_dir)
-    con = mysql.connector.connect(user="root", password="mysql", host="localhost", database="flibusta")
-    # db_cursor = con.cursor()
-    # db_cursor.execute("ALTER TABLE libavtorname MODIFY firstname VARCHAR(255) NULL")
-    # db_cursor.execute("ALTER TABLE libavtorname MODIFY middlename VARCHAR(255) NULL")
-    # db_cursor.execute("""UPDATE
-    #     libavtorname
-    # SET
-    #     firstname = CASE firstname WHEN '' THEN NULL ELSE firstname END,
-    #     middlename = CASE middlename WHEN '' THEN NULL ELSE middlename END
-    # """)
-    # db_cursor.close()
-    # con.commit()
-    #
+    flget_cache_dir = platformdirs.user_cache_dir("flget")
+    con = sqlite3.connect(_db_path(flget_cache_dir))
+    _register_functions(con)
+
     db_cursor = con.cursor()
     db_cursor.execute("SELECT COUNT(*) FROM libbook")
 
@@ -225,7 +288,21 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
     db_cursor.execute(BOOKS_QUERY)
     books = {}
     for (
-    authors, author_names, genres, title, series, serno, filename, filesize, libid, ext, year, lang, rating, keywords) in db_cursor:
+        authors,
+        author_names,
+        genres,
+        title,
+        series,
+        serno,
+        filename,
+        filesize,
+        libid,
+        ext,
+        year,
+        lang,
+        rating,
+        keywords,
+    ) in db_cursor:
         progress_update(progress)
 
         if ext.lower() == "fb2":
@@ -265,7 +342,7 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
             keywords,
             archive,
         )
-        books[str(libid)]=book
+        books[str(libid)] = book
 
     db_cursor.execute("SELECT COUNT(*) FROM libavtorname")
 
@@ -274,7 +351,7 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
 
     db_cursor.execute(AUTHORS_QUERY)
     authors = []
-    for (id, name, books_no, series_no) in db_cursor:
+    for id, name, books_no, series_no in db_cursor:
         progress_update(progress)
         author = AuthorEntry(id, name, books_no, series_no)
         authors.append(author)
@@ -286,15 +363,17 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
 
     db_cursor.execute(SERIES_QUERY)
     series = []
-    for (id, name, books_no, authors_no) in db_cursor:
+    for id, name, books_no, authors_no in db_cursor:
         progress_update(progress)
         s = SeriesEntry(id, name, books_no, authors_no)
         series.append(s)
 
     db_cursor.execute(SERIES_BOOKS_QUERY)
     series_index = []
-    for (id, book_id, serno, series_name, series_authors) in db_cursor:
-        series_index.append(SeriesBookLink(id, book_id, serno, series_name, series_authors.split(",")))
+    for id, book_id, serno, series_name, series_authors in db_cursor:
+        series_index.append(
+            SeriesBookLink(id, book_id, serno, series_name, series_authors.split(","))
+        )
 
     con.close()
 

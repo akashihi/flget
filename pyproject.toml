@@ -16,7 +16,6 @@ dependencies = [
     "whoosh>=2.7.4,<3",
     "textual>=0.85.2,<0.86",
     "humanize>=4.11.0,<5",
-    "mysql-connector-python>=9.0.0,<10",
     # pyfiglet 0.8.post1 imports pkg_resources at runtime but does not declare it;
     # provide it via setuptools <81 (81 dropped the bundled pkg_resources module).
     "setuptools>=70,<81",

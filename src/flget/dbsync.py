@@ -339,7 +339,7 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
             str(year),
             lang,
             rating,
-            keywords,
+            keywords.split(",") if keywords else [],
             archive,
         )
         books[str(libid)] = book

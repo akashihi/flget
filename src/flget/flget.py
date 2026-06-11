@@ -157,7 +157,8 @@ def show_book(book_id: int) -> None:
     output = Text()
     output.append(f"Authors: {", ".join(book.authors)}\n", style="bold sea_green1")
     if book.series:
-        output.append(f"Series: {book.series} ({book.serno})\n", style="bold magenta")
+        series_list = [f"{s[0]} ({s[1]})" for s in zip(book.series, book.serno)]
+        output.append(f"Series: {','.join(series_list)}\n", style="bold magenta")
     output.append(f"Genres: {", ".join(book.genres)}\n", style="deep_sky_blue4")
     output.append(
         f"Rating: {str(book.rating) if book.rating >= 0 else 'Not yet set'}\n",

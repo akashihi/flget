@@ -25,8 +25,8 @@ class BookEntry:
     author_names: list[str]
     genres: list[str]
     title: str
-    series: str
-    serno: int
+    series: list[str]
+    serno: list[int]
     filename: str
     filesize: int
     lib_id: int

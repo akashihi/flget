@@ -41,7 +41,7 @@ class BookViewWidget(Widget):
         if book.series:
             self._series.update(
                 Text(
-                    f"{book.series} ({book.serno})",
+                    ",".join([f"{s[0]} ({s[1]})" for s in zip(book.series, book.serno)]),
                     justify="left",
                     style="bold magenta",
                 )

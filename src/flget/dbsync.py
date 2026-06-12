@@ -324,13 +324,16 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
                     continue
             archive = archives_map[filename]
 
+        series_list = series.split(",") if series else []
+        serno_list = [int(x) for x in serno.split(",")] if series else []
+
         book = BookEntry(
             authors.split(",") if authors else [],
             author_names.split(",") if authors else [],
             genres.split(",") if genres else [],
             title,
-            series,
-            serno,
+            series_list,
+            serno_list,
             filename,
             filesize,
             str(libid),

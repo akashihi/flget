@@ -77,6 +77,8 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
                                         series_authors_counter.get(s_a[1], 0) + 1
                                     )
                         serno = optional_int_parse(book_entry[4].decode("UTF-8"))
+                        series_list = [series_names] if series_names else []
+                        serno_list = [serno] if series_names else []
                         filename = book_entry[5].decode("UTF-8")
                         filesize = int(book_entry[6].decode("UTF-8"))
                         libid = int(book_entry[7].decode("UTF-8"))
@@ -105,8 +107,8 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
                             [],
                             genres,
                             title,
-                            series_names,
-                            serno,
+                            series_list,
+                            serno_list,
                             filename,
                             filesize,
                             libid,
@@ -142,7 +144,7 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
 
     series_link = []
     for book in filter(lambda b : b[1].series, books.items()):
-        series_link.append(SeriesBookLink(series_index.get(book[1].series),book[1].lib_id, book[1].serno, book[1].series, book[1].authors))
+        series_link.append(SeriesBookLink(series_index.get(book[1].series[0]),book[1].lib_id, book[1].serno[0], book[1].series[0], book[1].authors))
 
 
     return Mirror(books, series, authors, series_link)

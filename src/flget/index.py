@@ -35,8 +35,10 @@ def _book_result_to_entry(book_result: Hit) -> BookEntry:
         [],
         book_result["genres"].split(" "),
         book_result["title"],
-        book_result["series"].split(","),
-        [int(x) for x in book_result["serno"].split(",")],
+        book_result["series"].split(",") if book_result["series"] else [],
+        [int(x) for x in book_result["serno"].split(",")]
+        if book_result["serno"]
+        else [],
         None,
         None,
         book_result["lib_id"],
@@ -121,8 +123,8 @@ class BookIndex:
                 genres=" ".join(book.genres),
                 keywords=",".join(book.keywords),
                 authors=",".join(book.author_names),
-                series=book.series,
-                serno=str(book.serno),
+                series=",".join(book.series),
+                serno=",".join(str(x) for x in book.serno),
             )
         b_writer.commit()
 

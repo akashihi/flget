@@ -183,6 +183,13 @@ class BookIndex:
             entries = [_book_result_to_entry(e) for e in results]
             return entries
 
+    def field_values(self, field: str) -> list[str]:
+        with self._book_index.searcher() as searcher:
+            return sorted(
+                term.decode("utf-8") if isinstance(term, bytes) else term
+                for term in searcher.lexicon(field)
+            )
+
     def get_books(self, book_ids: list[int]) -> list[BookEntry]:
         result = []
         with self._book_index.searcher() as searcher:

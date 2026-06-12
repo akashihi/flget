@@ -79,6 +79,10 @@ from libseqname as lsn
 group by id, name
 """
 
+GENRE_TITLES_QUERY = """
+SELECT GenreCode, GenreDesc FROM libgenrelist
+"""
+
 SERIES_BOOKS_QUERY = """
                      select libseq.SeqId, libseq.BookId, SeqNumb, SeqName, group_concat(distinct AvtorId) as authors
                      from libseq
@@ -378,6 +382,12 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
             SeriesBookLink(id, book_id, serno, series_name, series_authors.split(","))
         )
 
+    genre_titles = {}
+    db_cursor.execute(GENRE_TITLES_QUERY)
+    for code, desc in db_cursor:
+        if code and desc:
+            genre_titles[code.lower()] = desc
+
     con.close()
 
-    return Mirror(books, series, authors, series_index)
+    return Mirror(books, series, authors, series_index, genre_titles=genre_titles)

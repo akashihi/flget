@@ -47,18 +47,21 @@ class SeriesBookLink:
     series_name: str
     authors: list[str]
 
+
 class Mirror:
     def __init__(
         self,
-        books: Dict[str,BookEntry],
+        books: Dict[str, BookEntry],
         series: list[SeriesEntry],
         authors: list[AuthorEntry],
         series_books: list[SeriesBookLink],
+        genre_titles: Optional[Dict[str, str]] = None,
     ):
         self._books = books
         self._series = series
         self._authors = authors
         self._series_books = series_books
+        self._genre_titles = genre_titles or {}
 
     def __len__(self):
         return self._books.__len__()
@@ -74,3 +77,6 @@ class Mirror:
 
     def series_books(self) -> list[SeriesBookLink]:
         return self._series_books
+
+    def genre_titles(self) -> Dict[str, str]:
+        return self._genre_titles

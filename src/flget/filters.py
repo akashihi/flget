@@ -1,0 +1,160 @@
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Optional
+
+import typer
+
+from flget.mirror import BookEntry
+
+# Static ISO-639-1 code -> English name map for the languages commonly found in
+# Flibusta. The DB dumps carry no language-name table, so titles on the
+# `filters languages` page come from here. Codes absent from this map render a
+# blank title.
+LANGUAGE_NAMES: dict[str, str] = {
+    "ru": "Russian",
+    "en": "English",
+    "uk": "Ukrainian",
+    "be": "Belarusian",
+    "de": "German",
+    "fr": "French",
+    "es": "Spanish",
+    "it": "Italian",
+    "pl": "Polish",
+    "pt": "Portuguese",
+    "nl": "Dutch",
+    "sv": "Swedish",
+    "no": "Norwegian",
+    "da": "Danish",
+    "fi": "Finnish",
+    "cs": "Czech",
+    "sk": "Slovak",
+    "bg": "Bulgarian",
+    "sr": "Serbian",
+    "hr": "Croatian",
+    "sl": "Slovenian",
+    "ro": "Romanian",
+    "hu": "Hungarian",
+    "el": "Greek",
+    "tr": "Turkish",
+    "lt": "Lithuanian",
+    "lv": "Latvian",
+    "et": "Estonian",
+    "ka": "Georgian",
+    "hy": "Armenian",
+    "az": "Azerbaijani",
+    "kk": "Kazakh",
+    "uz": "Uzbek",
+    "tg": "Tajik",
+    "he": "Hebrew",
+    "ar": "Arabic",
+    "fa": "Persian",
+    "zh": "Chinese",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "la": "Latin",
+}
+
+_SIZE_UNITS = {
+    "": 1,
+    "B": 1,
+    "K": 1024,
+    "KB": 1024,
+    "M": 1024**2,
+    "MB": 1024**2,
+    "G": 1024**3,
+    "GB": 1024**3,
+}
+
+
+def parse_size(text: str) -> int:
+    """Parse a human size (``500K``, ``2M``, ``1.5G``, ``KB/MB/GB`` or plain bytes)
+    into a byte count. Units are base 1024. Raises ``typer.BadParameter`` on
+    malformed input."""
+    raw = text.strip()
+    if not raw:
+        raise typer.BadParameter(f"Invalid size: '{text}'")
+
+    upper = raw.upper()
+    unit = ""
+    for suffix in ("KB", "MB", "GB", "B", "K", "M", "G"):
+        if upper.endswith(suffix):
+            unit = suffix
+            upper = upper[: -len(suffix)]
+            break
+
+    number = upper.strip()
+    try:
+        value = float(number)
+    except ValueError:
+        raise typer.BadParameter(f"Invalid size: '{text}'")
+    if value < 0:
+        raise typer.BadParameter(f"Invalid size: '{text}'")
+
+    return int(value * _SIZE_UNITS[unit])
+
+
+def _book_year(book: BookEntry) -> Optional[int]:
+    """Best-effort extraction of a publication year from ``BookEntry.date``,
+    which may be a ``datetime`` (INPX), a string year (dbsync), an int (after
+    files.db refill) or ``None``."""
+    date = book.date
+    if date is None:
+        return None
+    if isinstance(date, datetime):
+        return date.year
+    if isinstance(date, int):
+        return date
+    try:
+        return int(str(date)[:4])
+    except (ValueError, TypeError):
+        return None
+
+
+@dataclass(frozen=True)
+class BookFilter:
+    genres: frozenset[str] = frozenset()
+    formats: frozenset[str] = frozenset()
+    languages: frozenset[str] = frozenset()
+    year_from: Optional[int] = None
+    year_to: Optional[int] = None
+    min_size: Optional[int] = None
+    max_size: Optional[int] = None
+
+    def is_empty(self) -> bool:
+        return not (
+            self.genres
+            or self.formats
+            or self.languages
+            or self.year_from is not None
+            or self.year_to is not None
+            or self.min_size is not None
+            or self.max_size is not None
+        )
+
+    def matches(self, book: BookEntry) -> bool:
+        if self.genres:
+            book_genres = {g.lower() for g in book.genres}
+            if not book_genres & self.genres:
+                return False
+
+        if self.formats and book.ext.lower() not in self.formats:
+            return False
+
+        if self.languages and book.lang.lower() not in self.languages:
+            return False
+
+        if self.year_from is not None or self.year_to is not None:
+            year = _book_year(book)
+            if year is None:
+                return False
+            if self.year_from is not None and year < self.year_from:
+                return False
+            if self.year_to is not None and year > self.year_to:
+                return False
+
+        if self.min_size is not None and book.filesize < self.min_size:
+            return False
+        if self.max_size is not None and book.filesize > self.max_size:
+            return False
+
+        return True

@@ -1,5 +1,4 @@
-import typing
-from typing import Annotated
+from typing import Annotated, List, Optional
 
 import platformdirs
 import pyfiglet
@@ -7,25 +6,86 @@ import typer
 import humanize
 from rich import box
 from rich.console import Console
-from prompt_toolkit import prompt
 from rich.panel import Panel
-from rich.progress import Progress
 from rich.table import Table
 from rich.text import Text
 
+from flget import filters
 from flget.config import Config
-from flget.dbsync import get_dumps, decompress_dumps, db_import_dumps, build_mirror
-from flget.inpx import BookEntry, parse_inpx
+from flget.filters import BookFilter
+from flget.inpx import BookEntry
 from flget.library import TheLibrary
 from flget.sync import mirror_sync
 
 app = typer.Typer()
 search_app = typer.Typer()
 show_app = typer.Typer()
+filters_app = typer.Typer()
 console = Console()
 error_console = Console(stderr=True, style="bold red")
 config = Config()
 library = TheLibrary(config)
+
+GenreOption = Annotated[
+    Optional[List[str]],
+    typer.Option(
+        "--genre", "-g", help="Filter by genre code (repeatable; see 'filters genres')."
+    ),
+]
+FormatOption = Annotated[
+    Optional[List[str]],
+    typer.Option(
+        "--format",
+        "-f",
+        help="Filter by file format (repeatable; see 'filters formats').",
+    ),
+]
+LanguageOption = Annotated[
+    Optional[List[str]],
+    typer.Option(
+        "--language",
+        "-l",
+        help="Filter by language code (repeatable; see 'filters languages').",
+    ),
+]
+YearFromOption = Annotated[
+    Optional[int],
+    typer.Option("--year-from", help="Only books published this year or later."),
+]
+YearToOption = Annotated[
+    Optional[int],
+    typer.Option("--year-to", help="Only books published this year or earlier."),
+]
+MinSizeOption = Annotated[
+    Optional[str],
+    typer.Option("--min-size", help="Minimum file size (e.g. 500K, 2M, 1.5G)."),
+]
+MaxSizeOption = Annotated[
+    Optional[str],
+    typer.Option("--max-size", help="Maximum file size (e.g. 500K, 2M, 1.5G)."),
+]
+
+
+def _build_filter(
+    genre: Optional[List[str]],
+    format: Optional[List[str]],
+    language: Optional[List[str]],
+    year_from: Optional[int],
+    year_to: Optional[int],
+    min_size: Optional[str],
+    max_size: Optional[str],
+) -> BookFilter:
+    return BookFilter(
+        genres=frozenset(g.lower() for g in genre) if genre else frozenset(),
+        formats=frozenset(f.lower() for f in format) if format else frozenset(),
+        languages=frozenset(lang.lower() for lang in language)
+        if language
+        else frozenset(),
+        year_from=year_from,
+        year_to=year_to,
+        min_size=filters.parse_size(min_size) if min_size is not None else None,
+        max_size=filters.parse_size(max_size) if max_size is not None else None,
+    )
 
 
 @app.command()
@@ -41,12 +101,24 @@ def get(
 
 
 @search_app.command(name="author")
-def author_search(query: str) -> None:
+def author_search(
+    query: str,
+    genre: GenreOption = None,
+    format: FormatOption = None,
+    language: LanguageOption = None,
+    year_from: YearFromOption = None,
+    year_to: YearToOption = None,
+    min_size: MinSizeOption = None,
+    max_size: MaxSizeOption = None,
+) -> None:
     """
     Search for the author.
 
     """
-    results = library.search_authors(query)
+    book_filter = _build_filter(
+        genre, format, language, year_from, year_to, min_size, max_size
+    )
+    results = library.search_authors(query, book_filter)
 
     if results:
         table = Table(title="Authors", expand=True, box=box.SIMPLE_HEAVY)
@@ -70,12 +142,24 @@ def author_search(query: str) -> None:
 
 
 @search_app.command(name="series")
-def series_search(query: str) -> None:
+def series_search(
+    query: str,
+    genre: GenreOption = None,
+    format: FormatOption = None,
+    language: LanguageOption = None,
+    year_from: YearFromOption = None,
+    year_to: YearToOption = None,
+    min_size: MinSizeOption = None,
+    max_size: MaxSizeOption = None,
+) -> None:
     """
     Search for the series.
 
     """
-    results = library.search_series(query)
+    book_filter = _build_filter(
+        genre, format, language, year_from, year_to, min_size, max_size
+    )
+    results = library.search_series(query, book_filter)
 
     if results:
         table = Table(title="Series", expand=True, box=box.SIMPLE_HEAVY)
@@ -123,23 +207,48 @@ def _book_list_render(title: str, books: list[BookEntry]) -> None:
 
 
 @search_app.command(name="book")
-def book_search(query: str) -> None:
+def book_search(
+    query: str,
+    genre: GenreOption = None,
+    format: FormatOption = None,
+    language: LanguageOption = None,
+    year_from: YearFromOption = None,
+    year_to: YearToOption = None,
+    min_size: MinSizeOption = None,
+    max_size: MaxSizeOption = None,
+) -> None:
     """
     Search for the book
 
     """
-    _book_list_render("Books", library.search_books(query))
+    book_filter = _build_filter(
+        genre, format, language, year_from, year_to, min_size, max_size
+    )
+    _book_list_render("Books", library.search_books(query, book_filter))
 
 
 @search_app.command(name="all")
-def all_search(query: str) -> None:
+def all_search(
+    query: str,
+    genre: GenreOption = None,
+    format: FormatOption = None,
+    language: LanguageOption = None,
+    year_from: YearFromOption = None,
+    year_to: YearToOption = None,
+    min_size: MinSizeOption = None,
+    max_size: MaxSizeOption = None,
+) -> None:
     """
     Search for the book/series/author
 
     """
-    author_search(query)
-    series_search(query)
-    book_search(query)
+    author_search(
+        query, genre, format, language, year_from, year_to, min_size, max_size
+    )
+    series_search(
+        query, genre, format, language, year_from, year_to, min_size, max_size
+    )
+    book_search(query, genre, format, language, year_from, year_to, min_size, max_size)
 
 
 @show_app.command(name="book")
@@ -196,8 +305,12 @@ def show_author(author_id: int) -> None:
 
 @app.command()
 def sync(
-    force_db_sync: Annotated[bool, typer.Option(is_flag=True, help="Skip INPX import.")]=False,
-    force_download: Annotated[bool, typer.Option(help="Ignore cached metadata and re-download all DB dumps.")]=False,
+    force_db_sync: Annotated[
+        bool, typer.Option(is_flag=True, help="Skip INPX import.")
+    ] = False,
+    force_download: Annotated[
+        bool, typer.Option(help="Ignore cached metadata and re-download all DB dumps.")
+    ] = False,
 ) -> None:
     """
     Synchronize the internal database with a library.
@@ -208,6 +321,47 @@ def sync(
 
     """
     mirror_sync(force_db_sync, force_download, config, library, console, error_console)
+
+
+@filters_app.command(name="genres")
+def filters_genres() -> None:
+    """
+    List the genre codes available for filtering.
+
+    """
+    table = Table(title="Genres", box=box.SIMPLE_HEAVY)
+    table.add_column("Code", style="cyan", no_wrap=True)
+    table.add_column("Title", style="magenta")
+    for code, title in library.list_genres():
+        table.add_row(code, title or "")
+    console.print(table)
+
+
+@filters_app.command(name="formats")
+def filters_formats() -> None:
+    """
+    List the file formats available for filtering.
+
+    """
+    table = Table(title="Formats", box=box.SIMPLE_HEAVY)
+    table.add_column("Format", style="cyan", no_wrap=True)
+    for ext in library.list_formats():
+        table.add_row(ext)
+    console.print(table)
+
+
+@filters_app.command(name="languages")
+def filters_languages() -> None:
+    """
+    List the language codes available for filtering.
+
+    """
+    table = Table(title="Languages", box=box.SIMPLE_HEAVY)
+    table.add_column("Code", style="cyan", no_wrap=True)
+    table.add_column("Title", style="magenta")
+    for code in library.list_languages():
+        table.add_row(code, filters.LANGUAGE_NAMES.get(code, ""))
+    console.print(table)
 
 
 @app.command()
@@ -233,6 +387,7 @@ def main():
     # CLI setup
     app.add_typer(search_app, name="search", help="Search books/authors/series")
     app.add_typer(show_app, name="show", help="Show books/authors/series")
+    app.add_typer(filters_app, name="filters", help="List possible filter values")
     app()
 
 

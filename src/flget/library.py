@@ -9,6 +9,7 @@ import platformdirs
 import sqlite3
 
 from flget.config import Config
+from flget.filters import BookFilter, _book_year
 from flget.inpx import SeriesEntry
 from flget.inpx import AuthorEntry
 from flget.inpx import BookEntry
@@ -21,7 +22,15 @@ lib_id INTEGER PRIMARY KEY,
 archive TEXT NOT NULL,
 file TEXT NOT NULL,
 filesize INTEGER NOT NULL,
-ext TEXT NOT NULL 
+ext TEXT NOT NULL,
+year INTEGER
+)
+"""
+
+GENRE_TITLES_DDL = """
+CREATE TABLE IF NOT EXISTS genre_titles (
+code TEXT PRIMARY KEY,
+title TEXT NOT NULL
 )
 """
 
@@ -63,15 +72,27 @@ SELECT DISTINCT archive from files
 """
 
 FILES_BY_NAME_QUERY = """
-SELECT archive, file, filesize, ext FROM files where file=? 
+SELECT archive, file, filesize, ext, year FROM files where file=?
 """
 
 FILES_QUERY = """
-SELECT archive, file, filesize, ext FROM files where lib_id=? 
+SELECT archive, file, filesize, ext, year FROM files where lib_id=?
 """
 
 FILES_UPDATE = """
-INSERT INTO files (lib_id, archive, file, filesize, ext) VALUES (?, ?, ?, ?, ?)
+INSERT INTO files (lib_id, archive, file, filesize, ext, year) VALUES (?, ?, ?, ?, ?, ?)
+"""
+
+GENRE_TITLES_UPDATE = """
+INSERT INTO genre_titles (code, title) VALUES (?, ?)
+"""
+
+GENRE_TITLES_QUERY = """
+SELECT code, title FROM genre_titles
+"""
+
+FORMATS_QUERY = """
+SELECT DISTINCT ext FROM files ORDER BY ext
 """
 
 SERIES_UPDATE = """
@@ -126,6 +147,8 @@ class TheLibrary:
         self._file_db.execute(SERIES_DDL)
         self._file_db.execute(AUTHORS_SERIES_DDL)
         self._file_db.execute(AUTHORS_BOOKS_DDL)
+        self._file_db.execute(GENRE_TITLES_DDL)
+
         self._file_db.commit()
 
     def sync(self, mirror: Mirror, progress_update: Callable[[float], None]) -> None:
@@ -135,6 +158,7 @@ class TheLibrary:
         cur.execute("DELETE FROM series")
         cur.execute("DELETE FROM authors_series")
         cur.execute("DELETE FROM authors_books")
+        cur.execute("DELETE FROM genre_titles")
 
         progress = 50.0 / float(len(mirror.books()))
 
@@ -142,33 +166,111 @@ class TheLibrary:
             progress_update(progress)
             cur.execute(
                 FILES_UPDATE,
-                (lib_id, book.archive, book.filename, book.filesize, book.ext),
+                (
+                    lib_id,
+                    book.archive,
+                    book.filename,
+                    book.filesize,
+                    book.ext,
+                    _book_year(book),
+                ),
             )
             if not book.series:
                 for author_id in book.authors:
                     cur.execute(AUTHORS_BOOKS_UPDATE, (author_id, lib_id))
 
         for series_book in mirror.series_books():
-            cur.execute(SERIES_UPDATE, (series_book.series_id, series_book.book_id, series_book.serno, series_book.series_name))
+            cur.execute(
+                SERIES_UPDATE,
+                (
+                    series_book.series_id,
+                    series_book.book_id,
+                    series_book.serno,
+                    series_book.series_name,
+                ),
+            )
             for author_id in series_book.authors:
                 cur.execute(AUTHORS_SERIES_UPDATE, (author_id, series_book.series_id))
 
+        for code, title in mirror.genre_titles().items():
+            cur.execute(GENRE_TITLES_UPDATE, (code, title))
+
         self._file_db.commit()
 
-    def search_authors(self, query: str) -> list[AuthorEntry]:
-        return self._index.search_authors(query)
+    def _refill_book(self, book: BookEntry) -> Optional[BookEntry]:
+        """Populate file fields (archive/filename/ext/filesize) and the stored
+        year onto an index-only ``BookEntry`` from files.db. Returns ``None``
+        when the book has no files.db row."""
+        book_file = self._file_db.execute(FILES_QUERY, (book.lib_id,)).fetchone()
+        if book_file is None:
+            return None
+        return dataclasses.replace(
+            book,
+            archive=book_file[0],
+            filename=book_file[1],
+            filesize=book_file[2],
+            ext=book_file[3],
+            date=book_file[4],
+        )
+
+    def search_authors(
+        self, query: str, book_filter: Optional[BookFilter] = None
+    ) -> list[AuthorEntry]:
+        authors = self._index.search_authors(query)
+        if book_filter is None or book_filter.is_empty():
+            return authors
+        return [a for a in authors if self._author_has_match(a.id, book_filter)]
+
+    def _author_has_match(self, author_id: int, book_filter: BookFilter) -> bool:
+        if any(book_filter.matches(b) for b in self.get_author_books(author_id)):
+            return True
+        for series_id in self.get_author_series(author_id):
+            if any(book_filter.matches(b) for b in self.get_series(series_id)):
+                return True
+        return False
 
     def suggest_authors(self, query: str) -> Optional[str]:
         return self._index.suggest_authors(query)
 
-    def search_series(self, query: str) -> list[SeriesEntry]:
-        return self._index.search_series(query)
+    def search_series(
+        self, query: str, book_filter: Optional[BookFilter] = None
+    ) -> list[SeriesEntry]:
+        series = self._index.search_series(query)
+        if book_filter is None or book_filter.is_empty():
+            return series
+        return [
+            s
+            for s in series
+            if any(book_filter.matches(b) for b in self.get_series(s.id))
+        ]
 
     def suggest_series(self, query: str) -> Optional[str]:
         return self._index.suggest_series(query)
 
-    def search_books(self, query: str) -> list[BookEntry]:
-        return self._index.search_books(query)
+    def search_books(
+        self, query: str, book_filter: Optional[BookFilter] = None
+    ) -> list[BookEntry]:
+        result = []
+        for book in self._index.search_books(query):
+            refilled = self._refill_book(book)
+            if refilled is None:
+                continue
+            if book_filter is None or book_filter.matches(refilled):
+                result.append(refilled)
+        return result
+
+    def list_genres(self) -> list[Tuple[str, Optional[str]]]:
+        titles = {
+            row[0]: row[1]
+            for row in self._file_db.execute(GENRE_TITLES_QUERY).fetchall()
+        }
+        return [(code, titles.get(code)) for code in self._index.field_values("genres")]
+
+    def list_languages(self) -> list[str]:
+        return self._index.field_values("lang")
+
+    def list_formats(self) -> list[str]:
+        return [row[0] for row in self._file_db.execute(FORMATS_QUERY).fetchall()]
 
     def save(self, book_id: int, target_path: str) -> None:
         book_file = self._file_db.execute(FILES_QUERY, (book_id,)).fetchone()
@@ -187,7 +289,10 @@ class TheLibrary:
         for filename in files_in_lib:
             progress_update(progress)
             if filename.lower().endswith(".zip"):
-                if Path(filename.lower()).stem not in archives and filename.lower() not in archives:
+                if (
+                    Path(filename.lower()).stem not in archives
+                    and filename.lower() not in archives
+                ):
                     print(filename)
                     unknown_archives += 1
         return unknown_archives
@@ -215,7 +320,7 @@ class TheLibrary:
                             FILES_QUERY, (file_id,)
                         ).fetchone():
                             if not self._file_db.execute(
-                                    FILES_BY_NAME_QUERY, (member,)
+                                FILES_BY_NAME_QUERY, (member,)
                             ).fetchone():
                                 unknown_entries += 1
         return unknown_entries, missing_archives
@@ -230,19 +335,11 @@ class TheLibrary:
         )
 
     def get_books(self, book_ids: list[int]) -> list[BookEntry]:
-        books = self._index.get_books(book_ids)
         result = []
-        for book in books:
-            book_file = self._file_db.execute(FILES_QUERY, (book.lib_id,)).fetchone()
-            result.append(
-                dataclasses.replace(
-                    book,
-                    filename=book_file[1],
-                    ext=book_file[3],
-                    archive=book_file[0],
-                    filesize=book_file[2],
-                )
-            )
+        for book in self._index.get_books(book_ids):
+            refilled = self._refill_book(book)
+            if refilled is not None:
+                result.append(refilled)
         return result
 
     def get_series_name(self, series_id: int) -> Optional[str]:

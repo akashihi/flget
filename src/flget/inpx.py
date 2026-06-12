@@ -94,7 +94,7 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
                             keywords = multi_entry_clean(
                                 book_entry[13].decode("UTF-8").split(",")
                             )
-                        else: # 17 fields INPX
+                        else:  # 17 fields INPX
                             archive = book_entry[12].decode("UTF-8")
                             lang = book_entry[13].decode("UTF-8")
                             rating = optional_int_parse(book_entry[14].decode("UTF-8"))
@@ -132,8 +132,12 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
         authors.append(AuthorEntry(index, name, books_count, series_count))
         authors_index[name] = index
 
-    for book_id,book in books.items():
-        books[book_id] = dataclasses.replace(book, authors = list(map(lambda x: authors_index[x], book.authors)), author_names = book.authors)
+    for book_id, book in books.items():
+        books[book_id] = dataclasses.replace(
+            book,
+            authors=list(map(lambda x: authors_index[x], book.authors)),
+            author_names=book.authors,
+        )
 
     series = []
     series_index = {}
@@ -143,8 +147,15 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
         series_index[name] = index
 
     series_link = []
-    for book in filter(lambda b : b[1].series, books.items()):
-        series_link.append(SeriesBookLink(series_index.get(book[1].series[0]),book[1].lib_id, book[1].serno[0], book[1].series[0], book[1].authors))
-
+    for book in filter(lambda b: b[1].series, books.items()):
+        series_link.append(
+            SeriesBookLink(
+                series_index.get(book[1].series[0]),
+                book[1].lib_id,
+                book[1].serno[0],
+                book[1].series[0],
+                book[1].authors,
+            )
+        )
 
     return Mirror(books, series, authors, series_link)

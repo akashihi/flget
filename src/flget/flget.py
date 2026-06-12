@@ -274,6 +274,9 @@ def show_book(book_id: int) -> None:
         style="indian_red1",
     )
     output.append(f"Keywords: {", ".join(book.keywords)}\n", style="deep_sky_blue4")
+    year = filters._book_year(book)
+    if year is not None:
+        output.append(f"Year: {year}\n", style="indian_red1")
     output.append(f"Language: {book.lang}\n", style="indian_red1")
     output.append(
         f"{book.filename}.{book.ext} in {config.libdir()}{book.archive}.zip ({humanize.naturalsize(book.filesize, gnu=True)} bytes)\n",

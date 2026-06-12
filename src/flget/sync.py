@@ -39,6 +39,7 @@ def report_validation_results(console, validation_results):
             style="royal_blue1",
         )
 
+
 def index_books(inpx_mirror, library):
     with Progress() as progress:
         index_task = progress.add_task(
@@ -50,13 +51,14 @@ def index_books(inpx_mirror, library):
 
         library.sync(inpx_mirror, task_updater)
 
+
 def mirror_sync(
-        force_db_sync: bool,
-        force_download: bool,
-        config: Config,
-        library: TheLibrary,
-        console: Console,
-        error_console: Console,
+    force_db_sync: bool,
+    force_download: bool,
+    config: Config,
+    library: TheLibrary,
+    console: Console,
+    error_console: Console,
 ) -> None:
     """
     Synchronize the internal database with a library.
@@ -92,8 +94,8 @@ def mirror_sync(
         report_validation_results(console, validation_results)
 
         if (
-                validation_results.unknown_archives > 0
-                or validation_results.unknown_books > 0
+            validation_results.unknown_archives > 0
+            or validation_results.unknown_books > 0
         ):
             db_sync_answer = prompt(
                 "Unknown items found, would you like to sync with a DB dump? (y/N)"

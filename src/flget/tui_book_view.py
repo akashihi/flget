@@ -6,6 +6,7 @@ from rich.emoji import Emoji
 import humanize
 
 from flget.inpx import BookEntry
+from flget.filters import _book_year
 
 
 class BookViewWidget(Widget):
@@ -30,9 +31,11 @@ class BookViewWidget(Widget):
     def update(self, book: BookEntry) -> None:
         title_text = Text(justify="center")
         title_text.append(book.title, style="bold")
-        title_text.append(" (YEAR) ")
+        year = _book_year(book)
+        if year is not None:
+            title_text.append(f" ({year})")
         if book.rating > 0:
-            title_text.append(Emoji.replace(":star:") * book.rating)
+            title_text.append(" " + Emoji.replace(":star:") * book.rating)
         self._title.update(title_text)
 
         self._author.update(
@@ -41,7 +44,9 @@ class BookViewWidget(Widget):
         if book.series:
             self._series.update(
                 Text(
-                    ",".join([f"{s[0]} ({s[1]})" for s in zip(book.series, book.serno)]),
+                    ",".join(
+                        [f"{s[0]} ({s[1]})" for s in zip(book.series, book.serno)]
+                    ),
                     justify="left",
                     style="bold magenta",
                 )

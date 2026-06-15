@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, cast
 
 from textual import on, work
 from textual.app import App, ComposeResult
@@ -76,8 +76,10 @@ class FlTui(App):
 
     @on(DataTable.RowHighlighted, "BookTable")
     def on_book_select(self, event: DataTable.RowHighlighted) -> None:
-        if event.row_key.value:
-            search_result = self._library.get_books([int(event.row_key.value)])
+        table = cast(BookTable, event.data_table)
+        book_id = table.book_id(event.row_key)
+        if book_id is not None:
+            search_result = self._library.get_books([book_id])
             if search_result:
                 book = search_result[0]
                 self._book_info.update(book)

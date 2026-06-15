@@ -25,7 +25,6 @@ class AuthorsWidget(Widget):
         self._authors_table.add_columns("ID", "Name", "Books", "Series")
 
     def populate(self, authors: list[AuthorEntry]) -> None:
-        print(authors)
         self._authors_table.clear()
         for entry in authors:
             self._authors_table.add_row(

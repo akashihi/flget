@@ -2,11 +2,13 @@ from typing import Optional, cast
 
 from textual import on, work
 from textual.app import App, ComposeResult
-from textual.widgets import Footer, Input, TabbedContent, TabPane, DataTable
+from textual.containers import Horizontal
+from textual.widgets import Footer, Input, TabbedContent, TabPane, DataTable, Button
 
 from flget.config import Config
 from flget.tui_authors_tab import AuthorsWidget
 from flget.tui_book_view import BookViewWidget
+from flget.tui_filter_screen import FilterScreen
 from flget.tui_series_tab import SeriesWidget
 from flget.tui_book_table import BookTable
 from flget.inpx import BookEntry
@@ -38,7 +40,9 @@ class FlTui(App):
         self._selected_book: Optional[BookEntry] = None
 
     def compose(self) -> ComposeResult:
-        yield Input(placeholder="Search...", id="search-input")
+        with Horizontal(id='search-bar'):
+            yield Input(placeholder="Search...", id="search-input")
+            yield Button("Filter", id="filter-books", variant="primary")
 
         with TabbedContent():
             with TabPane("Books", id="tab-books"):
@@ -61,6 +65,13 @@ class FlTui(App):
             await self.push_screen_wait(
                 SaveScreen(self, self._library, self._selected_book)
             )
+
+    @work
+    @on(Button.Pressed, "#filter-books")
+    async def action_filter(self) -> None:
+        await self.push_screen_wait(
+            FilterScreen(self)
+        )
 
     @on(Input.Changed, "#search-input")
     def on_search_input(self, event: Input.Changed) -> None:

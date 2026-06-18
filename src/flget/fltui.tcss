@@ -48,3 +48,62 @@ SaveScreen {
 SaveScreen Button {
     width: 1fr;
 }
+
+FilterScreen {
+    align: center middle;
+}
+
+#filter-dialog {
+    grid-size: 1;
+    grid-rows: 1 1fr 3 3;
+    grid-gutter: 1;
+    padding: 0 1;
+    width: 90%;
+    height: 90%;
+    border: thick $background 80%;
+    background: $surface;
+}
+
+#filter-title {
+    width: 1fr;
+    content-align: center middle;
+    text-style: bold;
+}
+
+#filter-lists {
+    height: 1fr;
+}
+
+.filter-col {
+    width: 1fr;
+    height: 1fr;
+}
+
+.filter-col SelectionList {
+    height: 1fr;
+    border: round $primary;
+}
+
+#filter-ranges {
+    height: auto;
+    align: left middle;
+}
+
+.filter-range-label {
+    width: auto;
+    padding: 1 1 0 2;
+}
+
+#filter-ranges Input {
+    width: 1fr;
+}
+
+#filter-buttons {
+    height: auto;
+    align: center middle;
+}
+
+#filter-buttons Button {
+    width: 1fr;
+    margin: 0 1;
+}

@@ -6,6 +6,7 @@ from textual.containers import Horizontal
 from textual.widgets import Footer, Input, TabbedContent, TabPane, DataTable, Button
 
 from flget.config import Config
+from flget.filters import BookFilter
 from flget.tui_authors_tab import AuthorsWidget
 from flget.tui_book_view import BookViewWidget
 from flget.tui_filter_screen import FilterScreen
@@ -38,9 +39,11 @@ class FlTui(App):
         self._book_info = BookViewWidget()
 
         self._selected_book: Optional[BookEntry] = None
+        self._book_filter: BookFilter = BookFilter()
+        self._current_query: str = ""
 
     def compose(self) -> ComposeResult:
-        with Horizontal(id='search-bar'):
+        with Horizontal(id="search-bar"):
             yield Input(placeholder="Search...", id="search-input")
             yield Button("Filter", id="filter-books", variant="primary")
 
@@ -69,21 +72,41 @@ class FlTui(App):
     @work
     @on(Button.Pressed, "#filter-books")
     async def action_filter(self) -> None:
-        await self.push_screen_wait(
-            FilterScreen(self)
+        result = await self.push_screen_wait(
+            FilterScreen(self, self._library, self._book_filter)
         )
+        if result is not None:  # None == cancelled
+            self._book_filter = result
+            self._update_filter_indicator()
+            self._run_search()
+
+    def _update_filter_indicator(self) -> None:
+        btn = self.query_one("#filter-books", Button)
+        if self._book_filter.is_empty():
+            btn.variant = "primary"
+            btn.label = "Filter"
+        else:
+            btn.variant = "warning"
+            btn.label = "Filter ✓"
+
+    def _run_search(self) -> None:
+        active = self.query_one(TabbedContent).active
+        if active == "tab-books":
+            results = self._library.search_books(self._current_query, self._book_filter)
+            self._books_table.populate(results)
+        elif active == "tab-series":
+            series = self._library.search_series(self._current_query, self._book_filter)
+            self._series_view.populate(series)
+        elif active == "tab-authors":
+            authors = self._library.search_authors(
+                self._current_query, self._book_filter
+            )
+            self._authors_view.populate(authors)
 
     @on(Input.Changed, "#search-input")
     def on_search_input(self, event: Input.Changed) -> None:
-        if self.query_one(TabbedContent).active == "tab-books":
-            results = self._library.search_books(event.value)
-            self._books_table.populate(results)
-        elif self.query_one(TabbedContent).active == "tab-series":
-            results = self._library.search_series(event.value)
-            self._series_view.populate(results)
-        elif self.query_one(TabbedContent).active == "tab-authors":
-            results = self._library.search_authors(event.value)
-            self._authors_view.populate(results)
+        self._current_query = event.value
+        self._run_search()
 
     @on(DataTable.RowHighlighted, "BookTable")
     def on_book_select(self, event: DataTable.RowHighlighted) -> None:

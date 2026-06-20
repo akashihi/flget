@@ -1,7 +1,8 @@
-from textual import on
+from textual import on, work
 from textual.app import ComposeResult
 from textual.widget import Widget
 from textual.widgets import DataTable
+from textual.worker import get_current_worker
 
 from flget.library import TheLibrary
 from flget.inpx import AuthorEntry
@@ -14,7 +15,9 @@ class AuthorsWidget(Widget):
 
         self._library = library
 
-        self._authors_table = DataTable(cursor_type="row", id="authors-table")
+        self._authors_table: DataTable[str] = DataTable(
+            cursor_type="row", id="authors-table"
+        )
         self._books_table = BookTable(widget_id="authors-books-table")
 
     def compose(self) -> ComposeResult:
@@ -38,9 +41,18 @@ class AuthorsWidget(Widget):
     @on(DataTable.RowHighlighted, "#authors-table")
     def on_author_select(self, event: DataTable.RowHighlighted) -> None:
         if event.row_key.value:
-            books = []
-            series_ids = self._library.get_author_series(event.row_key.value)
-            for series_id in series_ids:
-                books += self._library.get_series(series_id)
-            books += self._library.get_author_books(event.row_key.value)
-            self._books_table.populate(books)
+            self._load_author_books(int(event.row_key.value))
+
+    @work(thread=True, exclusive=True, group="author-detail")
+    def _load_author_books(self, author_id: int) -> None:
+        worker = get_current_worker()
+        is_cancelled = worker.cancelled_event.is_set
+        books = []
+        for series_id in self._library.get_author_series(author_id):
+            if is_cancelled():
+                return
+            books += self._library.get_series(series_id, is_cancelled)
+        books += self._library.get_author_books(author_id, is_cancelled)
+        if worker.is_cancelled:
+            return
+        self.app.call_from_thread(self._books_table.populate, books)

@@ -48,3 +48,8 @@ target-version = "py312"
 [tool.mypy]
 python_version = "3.12"
 files = ["src/flget"]
+
+# whoosh ships no type stubs / py.typed marker.
+[[tool.mypy.overrides]]
+module = "whoosh.*"
+ignore_missing_imports = true

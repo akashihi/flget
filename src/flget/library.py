@@ -1,5 +1,6 @@
 import dataclasses
 import os
+import threading
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -124,6 +125,10 @@ SELECT DISTINCT lib_id FROM authors_books WHERE author_id=?
 """
 
 
+def _never_cancelled() -> bool:
+    return False
+
+
 @dataclass(frozen=True)
 class MirrorValidationResult:
     missing_archives: int
@@ -136,12 +141,15 @@ class TheLibrary:
         self._config = config
         self._index = BookIndex()
 
-        file_db_path = os.path.join(
+        self._file_db_path = os.path.join(
             platformdirs.user_cache_dir("flget", ensure_exists=True), "files.db"
         )
-        self._file_db = sqlite3.connect(file_db_path)
+        # files.db is read-only during search, which now runs in Textual thread
+        # workers. SQLite connections are bound to their creating thread, so each
+        # thread gets its own connection (see the _file_db property).
+        self._local = threading.local()
 
-        # Pre-create tables
+        # Pre-create tables on the main-thread connection.
         self._file_db.execute(FILES_DDL)
         self._file_db.execute(FILES_INDEX)
         self._file_db.execute(SERIES_DDL)
@@ -150,6 +158,14 @@ class TheLibrary:
         self._file_db.execute(GENRE_TITLES_DDL)
 
         self._file_db.commit()
+
+    @property
+    def _file_db(self) -> sqlite3.Connection:
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = sqlite3.connect(self._file_db_path)
+            self._local.conn = conn
+        return conn
 
     def sync(self, mirror: Mirror, progress_update: Callable[[float], None]) -> None:
         self._index.create_index(mirror, progress_update)
@@ -214,18 +230,39 @@ class TheLibrary:
         )
 
     def search_authors(
-        self, query: str, book_filter: Optional[BookFilter] = None
+        self,
+        query: str,
+        book_filter: Optional[BookFilter] = None,
+        is_cancelled: Callable[[], bool] = _never_cancelled,
     ) -> list[AuthorEntry]:
-        authors = self._index.search_authors(query)
+        authors = self._index.search_authors(query, is_cancelled)
         if book_filter is None or book_filter.is_empty():
             return authors
-        return [a for a in authors if self._author_has_match(a.id, book_filter)]
+        result: list[AuthorEntry] = []
+        for a in authors:
+            if is_cancelled():
+                return result
+            if self._author_has_match(a.id, book_filter, is_cancelled):
+                result.append(a)
+        return result
 
-    def _author_has_match(self, author_id: int, book_filter: BookFilter) -> bool:
-        if any(book_filter.matches(b) for b in self.get_author_books(author_id)):
+    def _author_has_match(
+        self,
+        author_id: int,
+        book_filter: BookFilter,
+        is_cancelled: Callable[[], bool] = _never_cancelled,
+    ) -> bool:
+        if any(
+            book_filter.matches(b)
+            for b in self.get_author_books(author_id, is_cancelled)
+        ):
             return True
         for series_id in self.get_author_series(author_id):
-            if any(book_filter.matches(b) for b in self.get_series(series_id)):
+            if is_cancelled():
+                return False
+            if any(
+                book_filter.matches(b) for b in self.get_series(series_id, is_cancelled)
+            ):
                 return True
         return False
 
@@ -233,25 +270,35 @@ class TheLibrary:
         return self._index.suggest_authors(query)
 
     def search_series(
-        self, query: str, book_filter: Optional[BookFilter] = None
+        self,
+        query: str,
+        book_filter: Optional[BookFilter] = None,
+        is_cancelled: Callable[[], bool] = _never_cancelled,
     ) -> list[SeriesEntry]:
-        series = self._index.search_series(query)
+        series = self._index.search_series(query, is_cancelled)
         if book_filter is None or book_filter.is_empty():
             return series
-        return [
-            s
-            for s in series
-            if any(book_filter.matches(b) for b in self.get_series(s.id))
-        ]
+        result: list[SeriesEntry] = []
+        for s in series:
+            if is_cancelled():
+                return result
+            if any(book_filter.matches(b) for b in self.get_series(s.id, is_cancelled)):
+                result.append(s)
+        return result
 
     def suggest_series(self, query: str) -> Optional[str]:
         return self._index.suggest_series(query)
 
     def search_books(
-        self, query: str, book_filter: Optional[BookFilter] = None
+        self,
+        query: str,
+        book_filter: Optional[BookFilter] = None,
+        is_cancelled: Callable[[], bool] = _never_cancelled,
     ) -> list[BookEntry]:
-        result = []
-        for book in self._index.search_books(query):
+        result: list[BookEntry] = []
+        for book in self._index.search_books(query, is_cancelled):
+            if is_cancelled():
+                return result
             refilled = self._refill_book(book)
             if refilled is None:
                 continue
@@ -334,9 +381,13 @@ class TheLibrary:
             missing_archives, unknown_archives, unknown_entries
         )
 
-    def get_books(self, book_ids: list[int]) -> list[BookEntry]:
-        result = []
-        for book in self._index.get_books(book_ids):
+    def get_books(
+        self,
+        book_ids: list[int],
+        is_cancelled: Callable[[], bool] = _never_cancelled,
+    ) -> list[BookEntry]:
+        result: list[BookEntry] = []
+        for book in self._index.get_books(book_ids, is_cancelled):
             refilled = self._refill_book(book)
             if refilled is not None:
                 result.append(refilled)
@@ -345,9 +396,11 @@ class TheLibrary:
     def get_series_name(self, series_id: int) -> Optional[str]:
         return self._file_db.execute(SERIES_NAME_QUERY, (series_id,)).fetchone()[0]
 
-    def get_series(self, series_id: int) -> list[BookEntry]:
+    def get_series(
+        self, series_id: int, is_cancelled: Callable[[], bool] = _never_cancelled
+    ) -> list[BookEntry]:
         book_ids = self._file_db.execute(SERIES_QUERY, (series_id,)).fetchall()
-        return self.get_books([book_id[0] for book_id in book_ids])
+        return self.get_books([book_id[0] for book_id in book_ids], is_cancelled)
 
     def get_author_series(self, author_id: int) -> list[int]:
         series_ids = self._file_db.execute(
@@ -355,6 +408,8 @@ class TheLibrary:
         ).fetchall()
         return [s[0] for s in series_ids]
 
-    def get_author_books(self, author_id: int) -> list[BookEntry]:
+    def get_author_books(
+        self, author_id: int, is_cancelled: Callable[[], bool] = _never_cancelled
+    ) -> list[BookEntry]:
         book_ids = self._file_db.execute(AUTHORS_BOOKS_QUERY, (author_id,)).fetchall()
-        return self.get_books([book_id[0] for book_id in book_ids])
+        return self.get_books([book_id[0] for book_id in book_ids], is_cancelled)

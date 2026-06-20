@@ -1,7 +1,8 @@
-from textual import on
+from textual import on, work
 from textual.app import ComposeResult
 from textual.widget import Widget
 from textual.widgets import DataTable
+from textual.worker import get_current_worker
 
 from flget.library import TheLibrary
 from flget.inpx import SeriesEntry
@@ -14,7 +15,9 @@ class SeriesWidget(Widget):
 
         self._library = library
 
-        self._series_table = DataTable(cursor_type="row", id="series-table")
+        self._series_table: DataTable[str] = DataTable(
+            cursor_type="row", id="series-table"
+        )
         self._books_table = BookTable(widget_id="series-books-table")
 
     def compose(self) -> ComposeResult:
@@ -38,5 +41,13 @@ class SeriesWidget(Widget):
     @on(DataTable.RowHighlighted, "#series-table")
     def on_series_select(self, event: DataTable.RowHighlighted) -> None:
         if event.row_key.value:
-            books = self._library.get_series(int(event.row_key.value))
-            self._books_table.populate(books)
+            self._load_series_books(int(event.row_key.value))
+
+    @work(thread=True, exclusive=True, group="series-detail")
+    def _load_series_books(self, series_id: int) -> None:
+        worker = get_current_worker()
+        is_cancelled = worker.cancelled_event.is_set
+        books = self._library.get_series(series_id, is_cancelled)
+        if worker.is_cancelled:
+            return
+        self.app.call_from_thread(self._books_table.populate, books)

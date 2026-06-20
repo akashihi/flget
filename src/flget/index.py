@@ -5,6 +5,7 @@ import os
 
 from whoosh import index, writing
 from whoosh.analysis import StemmingAnalyzer
+from whoosh.collectors import Collector, WrappingCollector
 from whoosh.fields import Schema, TEXT, ID, NUMERIC, KEYWORD
 from whoosh.index import FileIndex
 from whoosh.qparser import QueryParser
@@ -14,6 +15,35 @@ from flget.mirror import SeriesEntry
 from flget.mirror import AuthorEntry
 from flget.mirror import BookEntry
 from flget.mirror import Mirror
+
+
+def _never_cancelled() -> bool:
+    return False
+
+
+class SearchCancelled(Exception):
+    """Raised by :class:`_CancellableCollector` when the external cancellation
+    flag is set, aborting an in-flight Whoosh search."""
+
+
+class CancellableCollector(WrappingCollector):
+    """Wraps another collector and aborts the search by raising
+    :class:`SearchCancelled` whenever ``is_cancelled()`` returns ``True``.
+
+    Modelled on Whoosh's ``TimeLimitCollector``: it delegates collection to the
+    wrapped child (preserving sorting/limit behaviour) but polls the external
+    flag between matched documents."""
+
+    def __init__(self, child: Collector, is_cancelled: Callable[[], bool]) -> None:
+        super().__init__(child)
+        self._is_cancelled = is_cancelled
+
+    def collect_matches(self) -> None:
+        child = self.child
+        for sub_docnum in child.matches():
+            if self._is_cancelled():
+                raise SearchCancelled
+            child.collect(sub_docnum)
 
 
 def _open_index(index_name: str, schema: Schema) -> FileIndex:
@@ -30,6 +60,8 @@ def _open_index(index_name: str, schema: Schema) -> FileIndex:
 
 
 def _book_result_to_entry(book_result: Hit) -> BookEntry:
+    # The file-resolution fields (filename/filesize/deleted/ext/date/archive) are
+    # None on an index-only entry; TheLibrary._refill_book fills them from files.db.
     return BookEntry(
         book_result["authors"].split(","),
         [],
@@ -39,16 +71,16 @@ def _book_result_to_entry(book_result: Hit) -> BookEntry:
         [int(x) for x in book_result["serno"].split(",")]
         if book_result["serno"]
         else [],
-        None,
-        None,
+        None,  # type: ignore[arg-type]
+        None,  # type: ignore[arg-type]
         book_result["lib_id"],
-        None,
-        None,
-        None,
+        None,  # type: ignore[arg-type]
+        None,  # type: ignore[arg-type]
+        None,  # type: ignore[arg-type]
         book_result["lang"],
         book_result["rating"],
         book_result["keywords"].split(","),
-        None,
+        None,  # type: ignore[arg-type]
     )
 
 
@@ -128,19 +160,28 @@ class BookIndex:
             )
         b_writer.commit()
 
-    def search_authors(self, query: str) -> list[AuthorEntry]:
+    def search_authors(
+        self, query: str, is_cancelled: Callable[[], bool] = _never_cancelled
+    ) -> list[AuthorEntry]:
         qp = QueryParser("author", schema=self._author_schema)
         q = qp.parse(query)
         with self._author_index.searcher() as searcher:
-            results = searcher.search(q, limit=None, sortedby="no_books", reverse=True)
+            collector = searcher.collector(
+                limit=None, sortedby="no_books", reverse=True
+            )
+            cancellable = CancellableCollector(collector, is_cancelled)
+            try:
+                searcher.search_with_collector(q, cancellable)
+            except SearchCancelled:
+                return []
             entries = [
                 AuthorEntry(
                     e["author_id"],
                     e["author"],
                     e["no_books"],
-                    e["no_series"] if "no_series" in e else "",
+                    e["no_series"] if "no_series" in e else None,
                 )
-                for e in results
+                for e in cancellable.results()
             ]
             return entries
 
@@ -154,14 +195,23 @@ class BookIndex:
             else:
                 return None
 
-    def search_series(self, query: str) -> list[SeriesEntry]:
+    def search_series(
+        self, query: str, is_cancelled: Callable[[], bool] = _never_cancelled
+    ) -> list[SeriesEntry]:
         qp = QueryParser("series", schema=self._series_schema)
         q = qp.parse(query)
         with self._series_index.searcher() as searcher:
-            results = searcher.search(q, limit=None, sortedby="no_books", reverse=True)
+            collector = searcher.collector(
+                limit=None, sortedby="no_books", reverse=True
+            )
+            cancellable = CancellableCollector(collector, is_cancelled)
+            try:
+                searcher.search_with_collector(q, cancellable)
+            except SearchCancelled:
+                return []
             entries = [
                 SeriesEntry(e["series_id"], e["series"], e["no_books"], e["no_authors"])
-                for e in results
+                for e in cancellable.results()
             ]
             return entries
 
@@ -175,12 +225,19 @@ class BookIndex:
             else:
                 return None
 
-    def search_books(self, query: str) -> list[BookEntry]:
+    def search_books(
+        self, query: str, is_cancelled: Callable[[], bool] = _never_cancelled
+    ) -> list[BookEntry]:
         qp = QueryParser("title", schema=self._book_schema)
         q = qp.parse(query)
         with self._book_index.searcher() as searcher:
-            results = searcher.search(q, limit=None, sortedby="rating", reverse=True)
-            entries = [_book_result_to_entry(e) for e in results]
+            collector = searcher.collector(limit=None, sortedby="rating", reverse=True)
+            cancellable = CancellableCollector(collector, is_cancelled)
+            try:
+                searcher.search_with_collector(q, cancellable)
+            except SearchCancelled:
+                return []
+            entries = [_book_result_to_entry(e) for e in cancellable.results()]
             return entries
 
     def field_values(self, field: str) -> list[str]:
@@ -190,10 +247,16 @@ class BookIndex:
                 for term in searcher.lexicon(field)
             )
 
-    def get_books(self, book_ids: list[int]) -> list[BookEntry]:
-        result = []
+    def get_books(
+        self,
+        book_ids: list[int],
+        is_cancelled: Callable[[], bool] = _never_cancelled,
+    ) -> list[BookEntry]:
+        result: list[BookEntry] = []
         with self._book_index.searcher() as searcher:
             for book_id in book_ids:
+                if is_cancelled():
+                    return result
                 book = searcher.document(lib_id=str(book_id))
                 if book is not None:
                     result.append(_book_result_to_entry(book))

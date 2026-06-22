@@ -1,3 +1,4 @@
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
@@ -53,6 +54,24 @@ LANGUAGE_NAMES: dict[str, str] = {
     "ko": "Korean",
     "la": "Latin",
 }
+
+
+def language_display(lang: str) -> str:
+    """Render a language code for display: ``Russian (ru)`` when a human-readable
+    name is known, the bare code (no brackets) when it is not, and empty for an
+    empty code."""
+    if not lang:
+        return ""
+    name = LANGUAGE_NAMES.get(lang.lower())
+    return f"{name} ({lang})" if name else lang
+
+
+def genre_display_names(genres: Iterable[str], titles: Mapping[str, str]) -> list[str]:
+    """Map genre codes to their human-readable titles, falling back to the raw
+    code when no title is known. ``titles`` keys are lowercased codes (see the
+    ``genre_titles`` build in ``dbsync``)."""
+    return [titles.get(g.lower(), g) for g in genres]
+
 
 _SIZE_UNITS = {
     "": 1,

@@ -49,11 +49,11 @@ class FlTui(App):
         self._config = Config()
         self._library = TheLibrary(self._config)
 
-        self._books_table = BookTable(widget_id="books-table")
+        self._books_table = BookTable(widget_id="books-table", library=self._library)
         self._series_view = SeriesWidget(self._library)
         self._authors_view = AuthorsWidget(self._library)
 
-        self._book_info = BookViewWidget()
+        self._book_info = BookViewWidget(self._library)
 
         self._selected_book: Optional[BookEntry] = None
         self._book_filter: BookFilter = BookFilter()

@@ -192,15 +192,16 @@ def _book_list_render(title: str, books: list[BookEntry]) -> None:
     table.add_column("Keywords", style="deep_sky_blue4")
     table.add_column("Language", justify="center", style="indian_red1", no_wrap=True)
 
+    genre_titles = library.genre_titles()
     for book in books:
         table.add_row(
             str(book.lib_id),
             book.title,
             ", ".join(book.authors),
-            ", ".join(book.genres),
+            ", ".join(filters.genre_display_names(book.genres, genre_titles)),
             str(book.rating) if book.rating >= 0 else "",
             ", ".join(book.keywords),
-            book.lang,
+            filters.language_display(book.lang),
         )
 
     console.print(table)
@@ -268,7 +269,10 @@ def show_book(book_id: int) -> None:
     if book.series:
         series_list = [f"{s[0]} ({s[1]})" for s in zip(book.series, book.serno)]
         output.append(f"Series: {','.join(series_list)}\n", style="bold magenta")
-    output.append(f"Genres: {", ".join(book.genres)}\n", style="deep_sky_blue4")
+    output.append(
+        f"Genres: {", ".join(filters.genre_display_names(book.genres, library.genre_titles()))}\n",
+        style="deep_sky_blue4",
+    )
     output.append(
         f"Rating: {str(book.rating) if book.rating >= 0 else 'Not yet set'}\n",
         style="indian_red1",
@@ -277,7 +281,9 @@ def show_book(book_id: int) -> None:
     year = filters._book_year(book)
     if year is not None:
         output.append(f"Year: {year}\n", style="indian_red1")
-    output.append(f"Language: {book.lang}\n", style="indian_red1")
+    output.append(
+        f"Language: {filters.language_display(book.lang)}\n", style="indian_red1"
+    )
     output.append(
         f"{book.filename}.{book.ext} in {config.libdir()}{book.archive}.zip ({humanize.naturalsize(book.filesize, gnu=True)} bytes)\n",
         style="magenta",

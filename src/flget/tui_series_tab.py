@@ -18,7 +18,7 @@ class SeriesWidget(Widget):
         self._series_table: DataTable[str] = DataTable(
             cursor_type="row", id="series-table"
         )
-        self._books_table = BookTable(widget_id="series-books-table")
+        self._books_table = BookTable(widget_id="series-books-table", library=library)
 
     def compose(self) -> ComposeResult:
         yield self._series_table

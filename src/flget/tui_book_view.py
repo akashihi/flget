@@ -6,12 +6,15 @@ from rich.emoji import Emoji
 import humanize
 
 from flget.inpx import BookEntry
-from flget.filters import _book_year
+from flget.filters import _book_year, genre_display_names, language_display
+from flget.library import TheLibrary
 
 
 class BookViewWidget(Widget):
-    def __init__(self):
+    def __init__(self, library: TheLibrary):
         super().__init__()
+
+        self._library = library
 
         self._title = Static("")
         self._author = Static("")
@@ -54,11 +57,12 @@ class BookViewWidget(Widget):
         else:
             self._series.update("")
 
-        self._genre.update(Text(",".join(book.genres), style="deep_sky_blue4"))
+        genres = genre_display_names(book.genres, self._library.genre_titles())
+        self._genre.update(Text(",".join(genres), style="deep_sky_blue4"))
         self._keywords.update(Text(",".join(book.keywords), style="deep_sky_blue4"))
 
         file_data = Text(
-            f"{book.filename}.{book.ext} ({humanize.naturalsize(book.filesize, gnu=True)}) Language: {book.lang}",
+            f"{book.filename}.{book.ext} ({humanize.naturalsize(book.filesize, gnu=True)}) Language: {language_display(book.lang)}",
             style="magenta",
         )
         self._file_data.update(file_data)

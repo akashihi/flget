@@ -149,6 +149,9 @@ class TheLibrary:
         # thread gets its own connection (see the _file_db property).
         self._local = threading.local()
 
+        # Cached code->title map; the table is read-only outside sync().
+        self._genre_titles_cache: Optional[dict[str, str]] = None
+
         # Pre-create tables on the main-thread connection.
         self._file_db.execute(FILES_DDL)
         self._file_db.execute(FILES_INDEX)
@@ -212,6 +215,7 @@ class TheLibrary:
             cur.execute(GENRE_TITLES_UPDATE, (code, title))
 
         self._file_db.commit()
+        self._genre_titles_cache = None
 
     def _refill_book(self, book: BookEntry) -> Optional[BookEntry]:
         """Populate file fields (archive/filename/ext/filesize) and the stored
@@ -306,11 +310,19 @@ class TheLibrary:
                 result.append(refilled)
         return result
 
+    def genre_titles(self) -> dict[str, str]:
+        """Cached code->title map for genres. Empty when the catalog carries no
+        genre titles (e.g. an INPX-only sync), in which case callers fall back to
+        the raw codes."""
+        if self._genre_titles_cache is None:
+            self._genre_titles_cache = {
+                row[0]: row[1]
+                for row in self._file_db.execute(GENRE_TITLES_QUERY).fetchall()
+            }
+        return self._genre_titles_cache
+
     def list_genres(self) -> list[Tuple[str, Optional[str]]]:
-        titles = {
-            row[0]: row[1]
-            for row in self._file_db.execute(GENRE_TITLES_QUERY).fetchall()
-        }
+        titles = self.genre_titles()
         return [(code, titles.get(code)) for code in self._index.field_values("genres")]
 
     def list_languages(self) -> list[str]:

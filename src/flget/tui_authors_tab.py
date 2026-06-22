@@ -18,7 +18,7 @@ class AuthorsWidget(Widget):
         self._authors_table: DataTable[str] = DataTable(
             cursor_type="row", id="authors-table"
         )
-        self._books_table = BookTable(widget_id="authors-books-table")
+        self._books_table = BookTable(widget_id="authors-books-table", library=library)
 
     def compose(self) -> ComposeResult:
         yield self._authors_table

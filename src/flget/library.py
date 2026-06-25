@@ -29,7 +29,8 @@ archive TEXT NOT NULL,
 file TEXT NOT NULL,
 filesize INTEGER NOT NULL,
 ext TEXT NOT NULL,
-year INTEGER
+year INTEGER,
+original_name INTEGER NOT NULL DEFAULT 0
 )
 """
 
@@ -82,11 +83,11 @@ SELECT archive, file, filesize, ext, year FROM files where file=?
 """
 
 FILES_QUERY = """
-SELECT archive, file, filesize, ext, year FROM files where lib_id=?
+SELECT archive, file, filesize, ext, year, original_name FROM files where lib_id=?
 """
 
 FILES_UPDATE = """
-INSERT INTO files (lib_id, archive, file, filesize, ext, year) VALUES (?, ?, ?, ?, ?, ?)
+INSERT INTO files (lib_id, archive, file, filesize, ext, year, original_name) VALUES (?, ?, ?, ?, ?, ?, ?)
 """
 
 GENRE_TITLES_UPDATE = """
@@ -174,8 +175,19 @@ class TheLibrary:
         self._file_db.execute(AUTHORS_SERIES_DDL)
         self._file_db.execute(AUTHORS_BOOKS_DDL)
         self._file_db.execute(GENRE_TITLES_DDL)
+        self._migrate_files_schema()
 
         self._file_db.commit()
+
+    def _migrate_files_schema(self) -> None:
+        """CREATE TABLE IF NOT EXISTS won't alter a pre-existing files.db, so add
+        the original_name column when missing. Existing rows default to 0 until the
+        next sync repopulates the table."""
+        columns = {row[1] for row in self._file_db.execute("PRAGMA table_info(files)")}
+        if "original_name" not in columns:
+            self._file_db.execute(
+                "ALTER TABLE files ADD COLUMN original_name INTEGER NOT NULL DEFAULT 0"
+            )
 
     @property
     def _file_db(self) -> sqlite3.Connection:
@@ -207,6 +219,7 @@ class TheLibrary:
                     book.filesize,
                     book.ext,
                     _book_year(book),
+                    int(book.original_name),
                 ),
             )
             if not book.series:
@@ -347,21 +360,18 @@ class TheLibrary:
         return [row[0] for row in self._file_db.execute(FORMATS_QUERY).fetchall()]
 
     @staticmethod
-    def _member_name(file: str, ext: str) -> str:
-        """The zip member name for a catalog entry. fb2 entries store a bare
-        numeric ``file`` (member is ``{file}.{ext}``); ``usr`` archives store the
-        original filename which already carries the extension."""
+    def _archive_member_name(file: str, ext: str) -> str:
         return file if file.lower().endswith(f".{ext.lower()}") else f"{file}.{ext}"
 
     def build_filename(self, book_id: int) -> str:
         book_file = self._file_db.execute(FILES_QUERY, (book_id,)).fetchone()
-        file, ext = book_file[1], book_file[3]
-        if not str(file).isdigit():
-            return self._member_name(file, ext)
+        file, ext, original_name = book_file[1], book_file[3], book_file[5]
+        if original_name:
+            return self._archive_member_name(file, ext)
 
         books = self.get_books([book_id])
         if not books:
-            return self._member_name(file, ext)
+            return self._archive_member_name(file, ext)
         book = books[0]
 
         author = book.authors[0] if book.authors else None
@@ -384,7 +394,7 @@ class TheLibrary:
             zippath = os.path.join(self._config.libdir(), book_file[0])
         else:
             zippath = os.path.join(self._config.libdir(), f"{book_file[0]}.zip")
-        member = self._member_name(book_file[1], book_file[3])
+        member = self._archive_member_name(book_file[1], book_file[3])
         out_name = self.build_filename(book_id)
         with zipfile.ZipFile(zippath, "r") as archive:
             data = archive.read(member)

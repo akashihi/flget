@@ -62,7 +62,7 @@ class BookViewWidget(Widget):
         self._keywords.update(Text(",".join(book.keywords), style="deep_sky_blue4"))
 
         file_data = Text(
-            f"{book.filename}.{book.ext} ({humanize.naturalsize(book.filesize, gnu=True)}) Language: {language_display(book.lang)}",
+            f"{self._library._archive_member_name(book.filename, book.ext)} ({humanize.naturalsize(book.filesize, gnu=True)}) Language: {language_display(book.lang)}",
             style="magenta",
         )
         self._file_data.update(file_data)

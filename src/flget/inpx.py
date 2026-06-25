@@ -102,6 +102,9 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
                                 book_entry[15].decode("UTF-8").split(",")
                             )
 
+                        # INPX stores real names without an extension.
+                        original_name = bool(filename) and filename != str(libid)
+
                         books_count = BookEntry(
                             authors,
                             [],
@@ -119,6 +122,7 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
                             rating,
                             keywords,
                             archive,
+                            original_name,
                         )
                         books[str(libid)] = books_count
 

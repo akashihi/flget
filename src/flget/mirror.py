@@ -37,6 +37,7 @@ class BookEntry:
     rating: int
     keywords: list[str]
     archive: str
+    original_name: bool = False
 
 
 @dataclass(frozen=True)

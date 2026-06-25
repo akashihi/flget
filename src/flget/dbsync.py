@@ -309,6 +309,8 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
     ) in db_cursor:
         progress_update(progress)
 
+        # usr archives have an actual name sometimes
+        original_name = False
         if ext.lower() == "fb2":
             full_filename = f"{libid}.fb2"
             if full_filename not in archives_map:
@@ -320,6 +322,7 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
                 continue
             else:
                 archive = archives_map[filename]
+            original_name = True
         else:
             filename = f"{libid}.{ext}"
             if filename not in archives_map:
@@ -348,6 +351,7 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
             rating,
             keywords.split(",") if keywords else [],
             archive,
+            original_name,
         )
         books[str(libid)] = book
 

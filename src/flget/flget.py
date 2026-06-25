@@ -286,7 +286,7 @@ def show_book(book_id: int) -> None:
         f"Language: {filters.language_display(book.lang)}\n", style="indian_red1"
     )
     output.append(
-        f"{book.filename}.{book.ext} in {config.libdir()}{book.archive}.zip ({humanize.naturalsize(book.filesize, gnu=True)} bytes)\n",
+        f"{library._archive_member_name(book.filename, book.ext)} in {config.libdir()}{book.archive}.zip ({humanize.naturalsize(book.filesize, gnu=True)} bytes)\n",
         style="magenta",
     )
     console.print(Panel(output, title=book.title, subtitle=str(book.lib_id)))

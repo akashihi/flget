@@ -98,6 +98,7 @@ def get(
 
     """
     library.save(book_id, target_path)
+    console.print(library.build_filename(book_id))
 
 
 @search_app.command(name="author")

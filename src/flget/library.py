@@ -16,6 +16,11 @@ from flget.inpx import AuthorEntry
 from flget.inpx import BookEntry
 from flget.index import BookIndex
 from flget.mirror import Mirror
+from flget import naming
+
+# Series larger than this are too generic to be useful in a filename, so the
+# series/serno segment is skipped for them.
+MAX_SERIES_SIZE = 50
 
 FILES_DDL = """
 CREATE TABLE IF NOT EXISTS files (
@@ -106,6 +111,16 @@ SELECT lib_id FROM series WHERE series_id=? ORDER BY serno ASC
 
 SERIES_NAME_QUERY = """
 SELECT DISTINCT name FROM series WHERE series_id=? LIMIT 1
+"""
+
+# For one book, every series it belongs to with that series' total book count
+# (resolved by series_id to avoid name-collision ambiguity).
+SERIES_SIZES_QUERY = """
+SELECT s.name, s.serno, cnt.n
+FROM series s
+JOIN (SELECT series_id, COUNT(*) AS n FROM series GROUP BY series_id) cnt
+  ON cnt.series_id = s.series_id
+WHERE s.lib_id = ?
 """
 
 AUTHORS_SERIES_UPDATE = """
@@ -331,14 +346,50 @@ class TheLibrary:
     def list_formats(self) -> list[str]:
         return [row[0] for row in self._file_db.execute(FORMATS_QUERY).fetchall()]
 
+    @staticmethod
+    def _member_name(file: str, ext: str) -> str:
+        """The zip member name for a catalog entry. fb2 entries store a bare
+        numeric ``file`` (member is ``{file}.{ext}``); ``usr`` archives store the
+        original filename which already carries the extension."""
+        return file if file.lower().endswith(f".{ext.lower()}") else f"{file}.{ext}"
+
+    def build_filename(self, book_id: int) -> str:
+        book_file = self._file_db.execute(FILES_QUERY, (book_id,)).fetchone()
+        file, ext = book_file[1], book_file[3]
+        if not str(file).isdigit():
+            return self._member_name(file, ext)
+
+        books = self.get_books([book_id])
+        if not books:
+            return self._member_name(file, ext)
+        book = books[0]
+
+        author = book.authors[0] if book.authors else None
+
+        series: Optional[str] = None
+        serno: Optional[int] = None
+        rows = self._file_db.execute(SERIES_SIZES_QUERY, (book_id,)).fetchall()
+        candidates = [row for row in rows if row[2] <= MAX_SERIES_SIZE]
+        if candidates:
+            name, position, _ = min(candidates, key=lambda row: row[2])
+            series, serno = name, position
+
+        return naming.build_book_filename(
+            author, series, serno, book.title, book_id, book.ext, book.lang
+        )
+
     def save(self, book_id: int, target_path: str) -> None:
         book_file = self._file_db.execute(FILES_QUERY, (book_id,)).fetchone()
         if book_file[0].lower().endswith(".zip"):
             zippath = os.path.join(self._config.libdir(), book_file[0])
         else:
             zippath = os.path.join(self._config.libdir(), f"{book_file[0]}.zip")
+        member = self._member_name(book_file[1], book_file[3])
+        out_name = self.build_filename(book_id)
         with zipfile.ZipFile(zippath, "r") as archive:
-            archive.extract(f"{book_file[1]}.{book_file[3]}", target_path)
+            data = archive.read(member)
+        with open(os.path.join(target_path, out_name), "wb") as fh:
+            fh.write(data)
 
     def _count_unknown_archives(self, progress_update: Callable[[float], None]) -> int:
         archives = set(x[0] for x in self._file_db.execute(ARCHIVES_QUERY).fetchall())

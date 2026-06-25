@@ -23,7 +23,7 @@ class SaveScreen(ModalScreen):
     def compose(self) -> ComposeResult:
         yield Grid(
             Label(
-                f"Where to save {self._book.filename}.{self._book.ext}?",
+                f"Where to save {self._library.build_filename(self._book.lib_id)}?",
                 id="save-question",
             ),
             self._filename_input,

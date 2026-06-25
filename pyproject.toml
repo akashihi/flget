@@ -16,6 +16,8 @@ dependencies = [
     "whoosh>=2.7.4,<3",
     "textual>=0.85.2,<0.86",
     "humanize>=4.11.0,<5",
+    "cyrtranslit>=1.1,<2",
+    "Unidecode>=1.3,<2",
     # pyfiglet 0.8.post1 imports pkg_resources at runtime but does not declare it;
     # provide it via setuptools <81 (81 dropped the bundled pkg_resources module).
     "setuptools>=70,<81",
@@ -42,6 +44,10 @@ requires = ["uv_build>=0.11,<0.12"]
 build-backend = "uv_build"
 # src layout (src/flget) is uv_build's default, so no [tool.uv.build-backend] override needed.
 
+[tool.codespell]
+# GOST is the Russian transliteration standard referenced in naming.py, not a typo.
+ignore-words-list = "gost"
+
 [tool.ruff]
 target-version = "py312"
 
@@ -52,4 +58,9 @@ files = ["src/flget"]
 # whoosh ships no type stubs / py.typed marker.
 [[tool.mypy.overrides]]
 module = "whoosh.*"
+ignore_missing_imports = true
+
+# cyrtranslit and unidecode ship no type stubs.
+[[tool.mypy.overrides]]
+module = ["cyrtranslit.*", "unidecode.*"]
 ignore_missing_imports = true

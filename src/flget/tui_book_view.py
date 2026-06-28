@@ -1,6 +1,7 @@
 from textual.app import ComposeResult
+from textual.containers import VerticalScroll
 from textual.widget import Widget
-from textual.widgets import Static
+from textual.widgets import Collapsible, Markdown, Static
 from rich.text import Text
 from rich.emoji import Emoji
 import humanize
@@ -23,13 +24,23 @@ class BookViewWidget(Widget):
         self._keywords = Static("")
         self._file_data = Static("")
 
+        self._annotation = Markdown()
+        self._reviews = Markdown()
+        self._annotation_box = Collapsible(
+            self._annotation, title="Annotation", collapsed=False
+        )
+        self._reviews_box = Collapsible(self._reviews, title="Reviews")
+
     def compose(self) -> ComposeResult:
-        yield self._title
-        yield self._author
-        yield self._series
-        yield self._genre
-        yield self._keywords
-        yield self._file_data
+        with VerticalScroll():
+            yield self._title
+            yield self._author
+            yield self._series
+            yield self._genre
+            yield self._keywords
+            yield self._file_data
+            yield self._annotation_box
+            yield self._reviews_box
 
     def update(self, book: BookEntry) -> None:
         title_text = Text(justify="center")
@@ -66,3 +77,11 @@ class BookViewWidget(Widget):
             style="magenta",
         )
         self._file_data.update(file_data)
+
+        book = self._library.fill_book_digest(book)
+        self._annotation_box.display = bool(book.annotation)
+        if book.annotation:
+            self._annotation.update(book.annotation)
+        self._reviews_box.display = bool(book.reviews)
+        if book.reviews:
+            self._reviews.update(book.reviews)

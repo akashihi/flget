@@ -6,6 +6,7 @@ import typer
 import humanize
 from rich import box
 from rich.console import Console
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
@@ -263,7 +264,7 @@ def show_book(book_id: int) -> None:
         console.print("Book not found")
         return
 
-    book = search_result[0]
+    book = library.fill_book_digest(search_result[0])
 
     output = Text()
     output.append(f"Authors: {", ".join(book.authors)}\n", style="bold sea_green1")
@@ -290,6 +291,11 @@ def show_book(book_id: int) -> None:
         style="magenta",
     )
     console.print(Panel(output, title=book.title, subtitle=str(book.lib_id)))
+
+    if book.annotation:
+        console.print(Panel(Markdown(book.annotation), title="Annotation"))
+    if book.reviews:
+        console.print(Panel(Markdown(book.reviews), title="Reviews"))
 
 
 @show_app.command(name="series")

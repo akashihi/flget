@@ -38,6 +38,8 @@ class BookEntry:
     keywords: list[str]
     archive: str
     original_name: bool = False
+    annotation: str = ""
+    reviews: str = ""
 
 
 @dataclass(frozen=True)

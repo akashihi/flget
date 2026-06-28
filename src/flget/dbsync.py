@@ -1,3 +1,4 @@
+import dataclasses
 import json
 import math
 import sqlite3
@@ -11,6 +12,7 @@ from zipfile import ZipFile
 import requests
 import os
 import platformdirs
+from markdownify import markdownify
 
 from flget.mysqldump import load_dump
 from flget.mirror import Mirror, BookEntry, AuthorEntry, SeriesEntry, SeriesBookLink
@@ -31,6 +33,7 @@ DB_FILE = [
     "lib.libseq.sql.gz",
     "lib.b.annotations.sql.gz",
     "lib.b.annotations_pics.sql.gz",
+    "lib.reviews.sql.gz",
 ]
 
 BOOKS_QUERY = """
@@ -108,11 +111,22 @@ _JOIN_INDEXES = [
     ("libfilename", "BookId"),
     ("libbook", "BookId"),
     ("libavtorname", "AvtorId"),
+    ("libbannotations", "BookId"),
+    ("libreviews", "BookId"),
 ]
+
+ANNOTATIONS_QUERY = "SELECT BookId, Body FROM libbannotations ORDER BY BookId, nid"
+REVIEWS_QUERY = "SELECT BookId, Name, Time, Text FROM libreviews ORDER BY BookId, Time"
 
 
 def _db_path(cache_dir: str) -> str:
     return os.path.join(cache_dir, "flibusta.db")
+
+
+def _html_to_markdown(html: Optional[str]) -> str:
+    if not html:
+        return ""
+    return markdownify(html).strip()
 
 
 def _concat_ws(sep: str, *args: Any) -> str:
@@ -391,6 +405,39 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
     for code, desc in db_cursor:
         if code and desc:
             genre_titles[code.lower()] = desc
+
+    # Pre-render annotations/reviews to Markdown and attach to the books
+    annotation_md: Dict[str, str] = {}
+    db_cursor.execute(ANNOTATIONS_QUERY)
+    for book_id, body in db_cursor:
+        key = str(book_id)
+        if key not in books:
+            continue
+        md = _html_to_markdown(body)
+        if not md:
+            continue
+        annotation_md[key] = (
+            f"{annotation_md[key]}\n\n{md}" if key in annotation_md else md
+        )
+
+    review_md: Dict[str, str] = {}
+    db_cursor.execute(REVIEWS_QUERY)
+    for book_id, name, time, text in db_cursor:
+        key = str(book_id)
+        if key not in books:
+            continue
+        body = _html_to_markdown(text)
+        if not body:
+            continue
+        block = f"**{name or 'Anonymous'}** — _{time}_\n\n{body}\n\n---\n"
+        review_md[key] = review_md[key] + block if key in review_md else block
+
+    for key in annotation_md.keys() | review_md.keys():
+        books[key] = dataclasses.replace(
+            books[key],
+            annotation=annotation_md.get(key, ""),
+            reviews=review_md.get(key, ""),
+        )
 
     con.close()
 

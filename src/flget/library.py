@@ -41,6 +41,15 @@ title TEXT NOT NULL
 )
 """
 
+# Separate from files to keep search fast(er?)
+BOOK_DIGEST_DDL = """
+CREATE TABLE IF NOT EXISTS book_digest (
+lib_id INTEGER PRIMARY KEY,
+annotation TEXT NOT NULL DEFAULT '',
+reviews TEXT NOT NULL DEFAULT ''
+)
+"""
+
 FILES_INDEX = """
 CREATE INDEX IF NOT EXISTS files_file ON files(file)
 """
@@ -96,6 +105,14 @@ INSERT INTO genre_titles (code, title) VALUES (?, ?)
 
 GENRE_TITLES_QUERY = """
 SELECT code, title FROM genre_titles
+"""
+
+BOOK_DIGEST_UPDATE = """
+INSERT INTO book_digest (lib_id, annotation, reviews) VALUES (?, ?, ?)
+"""
+
+BOOK_DIGEST_QUERY = """
+SELECT annotation, reviews FROM book_digest WHERE lib_id=?
 """
 
 FORMATS_QUERY = """
@@ -175,6 +192,7 @@ class TheLibrary:
         self._file_db.execute(AUTHORS_SERIES_DDL)
         self._file_db.execute(AUTHORS_BOOKS_DDL)
         self._file_db.execute(GENRE_TITLES_DDL)
+        self._file_db.execute(BOOK_DIGEST_DDL)
         self._migrate_files_schema()
 
         self._file_db.commit()
@@ -205,6 +223,7 @@ class TheLibrary:
         cur.execute("DELETE FROM authors_series")
         cur.execute("DELETE FROM authors_books")
         cur.execute("DELETE FROM genre_titles")
+        cur.execute("DELETE FROM book_digest")
 
         progress = 50.0 / float(len(mirror.books()))
 
@@ -222,6 +241,8 @@ class TheLibrary:
                     int(book.original_name),
                 ),
             )
+            if book.annotation or book.reviews:
+                cur.execute(BOOK_DIGEST_UPDATE, (lib_id, book.annotation, book.reviews))
             if not book.series:
                 for author_id in book.authors:
                     cur.execute(AUTHORS_BOOKS_UPDATE, (author_id, lib_id))
@@ -260,6 +281,12 @@ class TheLibrary:
             ext=book_file[3],
             date=book_file[4],
         )
+
+    def fill_book_digest(self, book: BookEntry) -> BookEntry:
+        row = self._file_db.execute(BOOK_DIGEST_QUERY, (book.lib_id,)).fetchone()
+        if row is None:
+            return book
+        return dataclasses.replace(book, annotation=row[0], reviews=row[1])
 
     def search_authors(
         self,

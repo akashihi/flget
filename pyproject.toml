@@ -21,6 +21,7 @@ dependencies = [
     # pyfiglet 0.8.post1 imports pkg_resources at runtime but does not declare it;
     # provide it via setuptools <81 (81 dropped the bundled pkg_resources module).
     "setuptools>=70,<81",
+    "markdownify>=1.2.2,<2",
 ]
 
 [project.scripts]

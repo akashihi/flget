@@ -36,6 +36,10 @@ DB_FILE = [
     "lib.reviews.sql.gz",
 ]
 
+ATTACHMENT_FILE = [
+    "lib.b.attached.zip",
+]
+
 BOOKS_QUERY = """
 select GROUP_CONCAT(distinct la.AvtorId) as authors, 
     GROUP_CONCAT(distinct concat_ws(' ', lan.firstname, lan.middlename, lan.lastname)) as author_names,
@@ -228,8 +232,9 @@ def _download_file(
 def get_dumps(progress_update: Callable[[float], None], force: bool = False):
     flget_cache_dir = platformdirs.user_cache_dir("flget", ensure_exists=True)
     meta = _load_meta(flget_cache_dir)
-    progress = 100.0 / len(DB_FILE)
-    for file in DB_FILE:
+    all_downloads = DB_FILE + ATTACHMENT_FILE
+    progress = 100.0 / len(all_downloads)
+    for file in all_downloads:
         _download_file(flget_cache_dir, file, meta, force=force)
         _save_meta(flget_cache_dir, meta)
         progress_update(progress)

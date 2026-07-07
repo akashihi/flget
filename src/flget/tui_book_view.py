@@ -1,7 +1,13 @@
+import io
+from typing import Optional, cast
+
+from textual import on, work
 from textual.app import ComposeResult
-from textual.containers import VerticalScroll
+from textual.containers import Horizontal, VerticalScroll
 from textual.widget import Widget
 from textual.widgets import Collapsible, Markdown, Static
+from textual.worker import Worker, WorkerState
+from textual_image.widget import Image as CoverImage
 from rich.text import Text
 from rich.emoji import Emoji
 import humanize
@@ -10,12 +16,18 @@ from flget.inpx import BookEntry
 from flget.filters import _book_year, genre_display_names, language_display
 from flget.library import TheLibrary
 
+COVER_GROUP = "cover"
+
 
 class BookViewWidget(Widget):
     def __init__(self, library: TheLibrary):
         super().__init__()
 
         self._library = library
+
+        self._cover_image = CoverImage(id="book-cover")
+        self._cover_image.display = False
+        self._current_lib_id: Optional[int] = None
 
         self._title = Static("")
         self._author = Static("")
@@ -32,17 +44,25 @@ class BookViewWidget(Widget):
         self._reviews_box = Collapsible(self._reviews, title="Reviews")
 
     def compose(self) -> ComposeResult:
-        with VerticalScroll():
-            yield self._title
-            yield self._author
-            yield self._series
-            yield self._genre
-            yield self._keywords
-            yield self._file_data
-            yield self._annotation_box
-            yield self._reviews_box
+        with Horizontal():
+            yield self._cover_image
+            with VerticalScroll():
+                yield self._title
+                yield self._author
+                yield self._series
+                yield self._genre
+                yield self._keywords
+                yield self._file_data
+                yield self._annotation_box
+                yield self._reviews_box
 
     def update(self, book: BookEntry) -> None:
+        # Hide the previous cover right away so it can never show against the
+        # new book's details while the lookup runs.
+        self._current_lib_id = book.lib_id
+        self._cover_image.display = False
+        self._load_cover(book.lib_id)
+
         title_text = Text(justify="center")
         title_text.append(book.title, style="bold")
         year = _book_year(book)
@@ -85,3 +105,20 @@ class BookViewWidget(Widget):
         self._reviews_box.display = bool(book.reviews)
         if book.reviews:
             self._reviews.update(book.reviews)
+
+    @work(thread=True, exclusive=True, group=COVER_GROUP)
+    def _load_cover(self, lib_id: int) -> tuple[int, Optional[bytes]]:
+        return lib_id, self._library.get_cover(lib_id)
+
+    @on(Worker.StateChanged)
+    def on_cover_worker_state(self, event: Worker.StateChanged) -> None:
+        if event.worker.group != COVER_GROUP or event.state != WorkerState.SUCCESS:
+            return
+        lib_id, data = cast("tuple[int, Optional[bytes]]", event.worker.result)
+        # Thread cancellation is cooperative, so a superseded lookup can still
+        # reach SUCCESS; the id check drops its stale result.
+        if lib_id != self._current_lib_id:
+            return
+        if data:
+            self._cover_image.image = io.BytesIO(data)
+            self._cover_image.display = True

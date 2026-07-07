@@ -50,6 +50,13 @@ reviews TEXT NOT NULL DEFAULT ''
 )
 """
 
+COVERS_DDL = """
+CREATE TABLE IF NOT EXISTS covers (
+lib_id INTEGER PRIMARY KEY,
+file TEXT NOT NULL
+)
+"""
+
 FILES_INDEX = """
 CREATE INDEX IF NOT EXISTS files_file ON files(file)
 """
@@ -113,6 +120,14 @@ INSERT INTO book_digest (lib_id, annotation, reviews) VALUES (?, ?, ?)
 
 BOOK_DIGEST_QUERY = """
 SELECT annotation, reviews FROM book_digest WHERE lib_id=?
+"""
+
+COVERS_UPDATE = """
+INSERT INTO covers (lib_id, file) VALUES (?, ?)
+"""
+
+COVERS_QUERY = """
+SELECT file FROM covers WHERE lib_id=?
 """
 
 FORMATS_QUERY = """
@@ -193,6 +208,7 @@ class TheLibrary:
         self._file_db.execute(AUTHORS_BOOKS_DDL)
         self._file_db.execute(GENRE_TITLES_DDL)
         self._file_db.execute(BOOK_DIGEST_DDL)
+        self._file_db.execute(COVERS_DDL)
         self._migrate_files_schema()
 
         self._file_db.commit()
@@ -224,6 +240,7 @@ class TheLibrary:
         cur.execute("DELETE FROM authors_books")
         cur.execute("DELETE FROM genre_titles")
         cur.execute("DELETE FROM book_digest")
+        cur.execute("DELETE FROM covers")
 
         progress = 50.0 / float(len(mirror.books()))
 
@@ -243,6 +260,8 @@ class TheLibrary:
             )
             if book.annotation or book.reviews:
                 cur.execute(BOOK_DIGEST_UPDATE, (lib_id, book.annotation, book.reviews))
+            if book.cover:
+                cur.execute(COVERS_UPDATE, (lib_id, book.cover))
             if not book.series:
                 for author_id in book.authors:
                     cur.execute(AUTHORS_BOOKS_UPDATE, (author_id, lib_id))
@@ -287,6 +306,27 @@ class TheLibrary:
         if row is None:
             return book
         return dataclasses.replace(book, annotation=row[0], reviews=row[1])
+
+    @property
+    def _attached_zip(self) -> zipfile.ZipFile:
+        # TLS handler for a pics archive
+        archive = getattr(self._local, "attached_zip", None)
+        if archive is None:
+            archive = zipfile.ZipFile(
+                os.path.join(platformdirs.user_cache_dir("flget"), "lib.b.attached.zip"),
+                "r",
+            )
+            self._local.attached_zip = archive
+        return archive
+
+    def get_cover(self, book_id: int) -> Optional[bytes]:
+        row = self._file_db.execute(COVERS_QUERY, (book_id,)).fetchone()
+        if row is None:
+            return None
+        try:
+            return self._attached_zip.read(row[0])
+        except (OSError, KeyError, zipfile.BadZipFile):
+            return None
 
     def search_authors(
         self,

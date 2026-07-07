@@ -1,3 +1,4 @@
+import io
 from typing import Annotated, List, Optional
 
 import platformdirs
@@ -10,6 +11,7 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
+from textual_image.renderable import Image as CoverRenderable
 
 from flget import filters
 from flget.config import Config
@@ -265,6 +267,10 @@ def show_book(book_id: int) -> None:
         return
 
     book = library.fill_book_digest(search_result[0])
+
+    cover = library.get_cover(book_id)
+    if cover:
+        console.print(CoverRenderable(io.BytesIO(cover), width="auto", height=20))
 
     output = Text()
     output.append(f"Authors: {", ".join(book.authors)}\n", style="bold sea_green1")

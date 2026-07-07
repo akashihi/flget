@@ -40,6 +40,7 @@ class BookEntry:
     original_name: bool = False
     annotation: str = ""
     reviews: str = ""
+    cover: str = ""  # member path inside lib.b.attached.zip, empty when no cover
 
 
 @dataclass(frozen=True)

@@ -21,7 +21,19 @@ BookViewWidget {
     height: 1fr;
 }
 
+BookViewWidget Horizontal {
+    height: 1fr;
+}
+
+#book-cover {
+    width: 30;
+    height: auto;
+    max-height: 100%;
+    margin-right: 1;
+}
+
 BookViewWidget VerticalScroll {
+    width: 1fr;
     height: 1fr;
 }
 

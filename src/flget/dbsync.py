@@ -117,10 +117,12 @@ _JOIN_INDEXES = [
     ("libavtorname", "AvtorId"),
     ("libbannotations", "BookId"),
     ("libreviews", "BookId"),
+    ("libbpics", "BookId"),
 ]
 
 ANNOTATIONS_QUERY = "SELECT BookId, Body FROM libbannotations ORDER BY BookId, nid"
 REVIEWS_QUERY = "SELECT BookId, Name, Time, Text FROM libreviews ORDER BY BookId, Time"
+PICS_QUERY = "SELECT BookId, File FROM libbpics ORDER BY BookId, nid"
 
 
 def _db_path(cache_dir: str) -> str:
@@ -437,11 +439,20 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
         block = f"**{name or 'Anonymous'}** — _{time}_\n\n{body}\n\n---\n"
         review_md[key] = review_md[key] + block if key in review_md else block
 
-    for key in annotation_md.keys() | review_md.keys():
+    cover_map: Dict[str, str] = {}
+    db_cursor.execute(PICS_QUERY)
+    for book_id, file in db_cursor:
+        key = str(book_id)
+        if key not in books or not file or key in cover_map:
+            continue
+        cover_map[key] = file
+
+    for key in annotation_md.keys() | review_md.keys() | cover_map.keys():
         books[key] = dataclasses.replace(
             books[key],
             annotation=annotation_md.get(key, ""),
             reviews=review_md.get(key, ""),
+            cover=cover_map.get(key, ""),
         )
 
     con.close()

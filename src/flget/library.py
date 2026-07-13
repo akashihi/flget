@@ -313,7 +313,9 @@ class TheLibrary:
         archive = getattr(self._local, "attached_zip", None)
         if archive is None:
             archive = zipfile.ZipFile(
-                os.path.join(platformdirs.user_cache_dir("flget"), "lib.b.attached.zip"),
+                os.path.join(
+                    platformdirs.user_cache_dir("flget"), "lib.b.attached.zip"
+                ),
                 "r",
             )
             self._local.attached_zip = archive
@@ -533,7 +535,7 @@ class TheLibrary:
                 result.append(refilled)
         return result
 
-    def get_series_name(self, series_id: int) -> Optional[str]:
+    def get_series_name(self, series_id: int) -> str:
         return self._file_db.execute(SERIES_NAME_QUERY, (series_id,)).fetchone()[0]
 
     def get_series(

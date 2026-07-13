@@ -5,7 +5,7 @@ from textual.widgets import DataTable
 from textual.worker import get_current_worker
 
 from flget.library import TheLibrary
-from flget.inpx import AuthorEntry
+from flget.inpx import AuthorEntry, BookEntry
 from flget.tui_book_table import BookTable
 
 
@@ -47,12 +47,30 @@ class AuthorsWidget(Widget):
     def _load_author_books(self, author_id: int) -> None:
         worker = get_current_worker()
         is_cancelled = worker.cancelled_event.is_set
-        books = []
-        for series_id in self._library.get_author_series(author_id):
+        named_series = sorted(
+            (
+                (self._library.get_series_name(series_id), series_id)
+                for series_id in self._library.get_author_series(author_id)
+            ),
+            key=lambda pair: pair[0].casefold(),
+        )
+        groups: list[tuple[str, list[BookEntry]]] = []
+        seen: set[int] = set()
+        for name, series_id in named_series:
             if is_cancelled():
                 return
-            books += self._library.get_series(series_id, is_cancelled)
-        books += self._library.get_author_books(author_id, is_cancelled)
+            series_books = self._library.get_series(series_id, is_cancelled)
+            if series_books:
+                groups.append((name, series_books))
+                seen.update(book.lib_id for book in series_books)
+        other = [
+            book
+            for book in self._library.get_author_books(author_id, is_cancelled)
+            if book.lib_id not in seen
+        ]
+        other.sort(key=lambda book: book.title.casefold())
+        if other:
+            groups.append(("Other books", other))
         if worker.is_cancelled:
             return
-        self.app.call_from_thread(self._books_table.populate, books)
+        self.app.call_from_thread(self._books_table.populate_grouped, groups)

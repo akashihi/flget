@@ -9,6 +9,7 @@ from whoosh.collectors import Collector, WrappingCollector
 from whoosh.fields import Schema, TEXT, ID, NUMERIC, KEYWORD
 from whoosh.index import FileIndex
 from whoosh.qparser import QueryParser
+from whoosh.query import And, FuzzyTerm, NullQuery, Or, Prefix, Query, Term
 from whoosh.searching import Hit
 
 from flget.mirror import SeriesEntry
@@ -19,6 +20,29 @@ from flget.mirror import Mirror
 
 def _never_cancelled() -> bool:
     return False
+
+
+# Tokens shorter than this are matched exactly (or as a prefix), never fuzzily
+MIN_FUZZY_LEN = 4
+
+
+def _build_search_query(schema: Schema, fieldname: str, qstring: str) -> Query:
+    tokens = list(schema[fieldname].process_text(qstring, mode="query"))
+    if not tokens:
+        return NullQuery
+
+    # A trailing space means the user finished the last word — no prefix then.
+    prefix_last = not qstring[-1].isspace()
+    last = len(tokens) - 1
+    parts: list[Query] = []
+    for i, token in enumerate(tokens):
+        alternatives: list[Query] = [Term(fieldname, token)]
+        if len(token) >= MIN_FUZZY_LEN:
+            alternatives.append(FuzzyTerm(fieldname, token, maxdist=1, prefixlength=1))
+        if i == last and prefix_last:
+            alternatives.append(Prefix(fieldname, token))
+        parts.append(Or(alternatives))
+    return parts[0] if len(parts) == 1 else And(parts)
 
 
 class SearchCancelled(Exception):
@@ -163,8 +187,7 @@ class BookIndex:
     def search_authors(
         self, query: str, is_cancelled: Callable[[], bool] = _never_cancelled
     ) -> list[AuthorEntry]:
-        qp = QueryParser("author", schema=self._author_schema)
-        q = qp.parse(query)
+        q = _build_search_query(self._author_schema, "author", query)
         with self._author_index.searcher() as searcher:
             collector = searcher.collector(
                 limit=None, sortedby="no_books", reverse=True
@@ -198,8 +221,7 @@ class BookIndex:
     def search_series(
         self, query: str, is_cancelled: Callable[[], bool] = _never_cancelled
     ) -> list[SeriesEntry]:
-        qp = QueryParser("series", schema=self._series_schema)
-        q = qp.parse(query)
+        q = _build_search_query(self._series_schema, "series", query)
         with self._series_index.searcher() as searcher:
             collector = searcher.collector(
                 limit=None, sortedby="no_books", reverse=True
@@ -228,8 +250,7 @@ class BookIndex:
     def search_books(
         self, query: str, is_cancelled: Callable[[], bool] = _never_cancelled
     ) -> list[BookEntry]:
-        qp = QueryParser("title", schema=self._book_schema)
-        q = qp.parse(query)
+        q = _build_search_query(self._book_schema, "title", query)
         with self._book_index.searcher() as searcher:
             collector = searcher.collector(limit=None, sortedby="rating", reverse=True)
             cancellable = CancellableCollector(collector, is_cancelled)

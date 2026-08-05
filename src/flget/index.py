@@ -1,5 +1,5 @@
-import os
 from collections.abc import Callable
+from pathlib import Path
 
 import platformdirs
 from whoosh import index, writing
@@ -67,15 +67,16 @@ class CancellableCollector(WrappingCollector):
 
 
 def _open_index(index_name: str, schema: Schema) -> FileIndex:
-    book_index_path = os.path.join(
-        platformdirs.user_cache_dir("flget", ensure_exists=True), "index"
+    book_index_path = (
+        Path(platformdirs.user_cache_dir("flget", ensure_exists=True)) / "index"
     )
-    if not os.path.exists(book_index_path):
-        os.makedirs(book_index_path)
-    if not index.exists_in(book_index_path, indexname=index_name):
-        ix = index.create_in(book_index_path, schema, indexname=index_name)
+    book_index_path.mkdir(parents=True, exist_ok=True)
+    # whoosh 2.7.4 predates os.PathLike support, so hand it a plain string.
+    index_dir = str(book_index_path)
+    if not index.exists_in(index_dir, indexname=index_name):
+        ix = index.create_in(index_dir, schema, indexname=index_name)
     else:
-        ix = index.open_dir(book_index_path, indexname=index_name)
+        ix = index.open_dir(index_dir, indexname=index_name)
     return ix
 
 

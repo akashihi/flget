@@ -1,6 +1,9 @@
+from typing import ClassVar
+
 import platformdirs
 from textual import on
 from textual.app import ComposeResult
+from textual.binding import BindingType
 from textual.containers import Grid
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label
@@ -10,7 +13,7 @@ from flget.library import TheLibrary
 
 
 class SaveScreen(ModalScreen):
-    BINDINGS = [("escape", "close", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [("escape", "close", "Close")]
 
     def __init__(self, parent, library: TheLibrary, book: BookEntry):
         super().__init__(parent)

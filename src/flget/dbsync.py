@@ -1,13 +1,12 @@
 import dataclasses
 import json
 import math
-import os
 import shutil
 import sqlite3
 from collections.abc import Callable
 from gzip import GzipFile
-from os import listdir
-from os.path import isfile, join
+from http import HTTPStatus
+from pathlib import Path
 from typing import Any
 from zipfile import ZipFile
 
@@ -42,7 +41,7 @@ ATTACHMENT_FILE = [
 ]
 
 BOOKS_QUERY = """
-select GROUP_CONCAT(distinct la.AvtorId) as authors, 
+select GROUP_CONCAT(distinct la.AvtorId) as authors,
     GROUP_CONCAT(distinct concat_ws(' ', lan.firstname, lan.middlename, lan.lastname)) as author_names,
     GROUP_CONCAT(distinct lgl.GenreCode)                                               as genres,
     lb.title                                                                           as title,
@@ -126,8 +125,8 @@ REVIEWS_QUERY = "SELECT BookId, Name, Time, Text FROM libreviews ORDER BY BookId
 PICS_QUERY = "SELECT BookId, File FROM libbpics ORDER BY BookId, nid"
 
 
-def _db_path(cache_dir: str) -> str:
-    return os.path.join(cache_dir, "flibusta.db")
+def _db_path(cache_dir: str) -> Path:
+    return Path(cache_dir) / "flibusta.db"
 
 
 def _html_to_markdown(html: str | None) -> str:
@@ -147,8 +146,7 @@ def _ceil(value: Any) -> Any:
 
 
 class _OrderedConcat:
-    """Aggregate replacing MySQL ``GROUP_CONCAT(DISTINCT v ORDER BY k)``.
-    """
+    """Aggregate replacing MySQL ``GROUP_CONCAT(DISTINCT v ORDER BY k)``."""
 
     def __init__(self) -> None:
         self._items: list[Any] = []
@@ -176,35 +174,35 @@ def _register_functions(con: sqlite3.Connection) -> None:
     con.create_aggregate("ordered_concat", 2, _OrderedConcat)  # type: ignore[arg-type]
 
 
-def _meta_path(cache_dir: str) -> str:
-    return os.path.join(cache_dir, "dumps_meta.json")
+def _meta_path(cache_dir: str) -> Path:
+    return Path(cache_dir) / "dumps_meta.json"
 
 
 def _load_meta(cache_dir: str) -> dict[str, Any]:
     try:
-        with open(_meta_path(cache_dir)) as f:
+        with _meta_path(cache_dir).open() as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
 
 def _save_meta(cache_dir: str, meta: dict[str, Any]) -> None:
-    with open(_meta_path(cache_dir), "w") as f:
+    with _meta_path(cache_dir).open("w") as f:
         json.dump(meta, f)
 
 
 def _download_file(
     target_dir: str, dump: str, meta: dict[str, Any], force: bool = False
-) -> str:
+) -> Path:
     url = FLIBUSTA_DB_PAGE.format(dump)
-    local_filename = os.path.join(target_dir, url.split("/")[-1])
+    local_filename = Path(target_dir) / url.split("/")[-1]
 
     headers: dict[str, str] = {}
     entry = meta.get(dump)
-    if not force and entry and os.path.isfile(local_filename):
+    if not force and entry and local_filename.is_file():
         size = entry.get("size")
         # Only trust the cached validators when the local file is intact.
-        if size is None or os.path.getsize(local_filename) == size:
+        if size is None or local_filename.stat().st_size == size:
             if entry.get("etag"):
                 headers["If-None-Match"] = entry["etag"]
             if entry.get("last_modified"):
@@ -212,10 +210,10 @@ def _download_file(
 
     with requests.get(url, stream=True, headers=headers, timeout=(10, 60)) as r:
         r.raise_for_status()
-        if r.status_code == 304:
+        if r.status_code == HTTPStatus.NOT_MODIFIED:
             return local_filename
         written = 0
-        with open(local_filename, "wb") as f:
+        with local_filename.open("wb") as f:
             for chunk in r.iter_content(chunk_size=1048576):
                 f.write(chunk)
                 written += len(chunk)
@@ -241,11 +239,14 @@ def get_dumps(progress_update: Callable[[float], None], force: bool = False):
 def decompress_dumps(progress_update: Callable[[float], None]):
     flget_cache_dir = platformdirs.user_cache_dir("flget", ensure_exists=True)
     progress = 100.0 / len(DB_FILE)
+    cache_dir = Path(flget_cache_dir)
     for file in DB_FILE:
-        nongz_file = os.path.join(flget_cache_dir, os.path.splitext(file)[0])
-        with GzipFile(os.path.join(flget_cache_dir, file), "rb") as f_in:
-            with open(nongz_file, "wb") as f_out:
-                shutil.copyfileobj(f_in, f_out)
+        nongz_file = cache_dir / Path(file).stem
+        with (
+            GzipFile(cache_dir / file, "rb") as f_in,
+            nongz_file.open("wb") as f_out,
+        ):
+            shutil.copyfileobj(f_in, f_out)
         progress_update(progress)
 
 
@@ -255,8 +256,7 @@ def db_import_dumps(progress_update: Callable[[float], None]):
 
     # Rebuild the staging DB from scratch every sync -- it is a throwaway
     # representation of the dumps, not durable data.
-    if os.path.exists(db_path):
-        os.remove(db_path)
+    db_path.unlink(missing_ok=True)
 
     con = sqlite3.connect(db_path)
     # This is a one-shot bulk load into a disposable file, so trade durability
@@ -266,7 +266,7 @@ def db_import_dumps(progress_update: Callable[[float], None]):
 
     progress = 100.0 / len(DB_FILE)
     for file in DB_FILE:
-        fname = os.path.join(flget_cache_dir, os.path.splitext(file)[0])
+        fname = Path(flget_cache_dir) / Path(file).stem
         load_dump(con, fname)
         con.commit()
         progress_update(progress)
@@ -283,14 +283,14 @@ def _build_archives_map(lib_dir: str) -> dict[str, str]:
     archives_map = {}
     archive = [
         f
-        for f in listdir(lib_dir)
-        if isfile(join(lib_dir, f)) and f.lower().endswith(".zip")
+        for f in Path(lib_dir).iterdir()
+        if f.is_file() and f.name.lower().endswith(".zip")
     ]
     for a in archive:
-        with ZipFile(os.path.join(lib_dir, a), "r") as z:
+        with ZipFile(a, "r") as z:
             for file in z.namelist():
-                archives_map[file] = a
-                archives_map[file.encode("utf-8").decode("cp437")] = a
+                archives_map[file] = a.name
+                archives_map[file.encode("utf-8").decode("cp437")] = a.name
     return archives_map
 
 
@@ -378,9 +378,9 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
 
     db_cursor.execute(AUTHORS_QUERY)
     authors = []
-    for id, name, books_no, series_no in db_cursor:
+    for author_id, name, books_no, series_no in db_cursor:
         progress_update(progress)
-        author = AuthorEntry(id, name, books_no, series_no)
+        author = AuthorEntry(author_id, name, books_no, series_no)
         authors.append(author)
 
     db_cursor.execute("SELECT COUNT(*) FROM libseqname")
@@ -390,16 +390,18 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
 
     db_cursor.execute(SERIES_QUERY)
     series = []
-    for id, name, books_no, authors_no in db_cursor:
+    for series_id, name, books_no, authors_no in db_cursor:
         progress_update(progress)
-        s = SeriesEntry(id, name, books_no, authors_no)
+        s = SeriesEntry(series_id, name, books_no, authors_no)
         series.append(s)
 
     db_cursor.execute(SERIES_BOOKS_QUERY)
     series_index = []
-    for id, book_id, serno, series_name, series_authors in db_cursor:
+    for series_id, book_id, serno, series_name, series_authors in db_cursor:
         series_index.append(
-            SeriesBookLink(id, book_id, serno, series_name, series_authors.split(","))
+            SeriesBookLink(
+                series_id, book_id, serno, series_name, series_authors.split(",")
+            )
         )
 
     genre_titles = {}

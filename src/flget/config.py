@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 
 import platformdirs
 from tomlkit import comment, document, dump, load, nl, table
@@ -7,12 +7,12 @@ from tomlkit import comment, document, dump, load, nl, table
 class Config:
     def __init__(self):
         flget_config_dir = platformdirs.user_config_dir("flget", ensure_exists=True)
-        flget_config = os.path.join(flget_config_dir, "flget.toml")
+        flget_config = Path(flget_config_dir) / "flget.toml"
 
         self._flget_config = flget_config
 
-        if os.path.exists(flget_config):
-            with open(flget_config) as config_file:
+        if flget_config.exists():
+            with flget_config.open() as config_file:
                 doc = load(config_file)
                 self._libdir = doc["flget"]["libdir"]
         else:
@@ -31,7 +31,7 @@ class Config:
 
         doc["flget"] = flget
 
-        with open(self._flget_config, "w") as config_file:
+        with self._flget_config.open("w") as config_file:
             dump(doc, config_file)
 
         self._libdir = path

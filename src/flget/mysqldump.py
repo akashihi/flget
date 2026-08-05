@@ -13,6 +13,7 @@ re-serialise data back into SQL text -- escaping and injection are non-issues.
 
 import re
 import sqlite3
+from pathlib import Path
 from typing import Any
 
 # When scanning *outside* a string we only care about the next quote (string
@@ -102,10 +103,10 @@ class _DumpLoader:
         self._conn.executemany(f'INSERT INTO "{table}" VALUES ({placeholders})', rows)
 
 
-def load_dump(conn: sqlite3.Connection, path: str) -> None:
+def load_dump(conn: sqlite3.Connection, path: Path) -> None:
     """Import one decompressed mysqldump ``.sql`` file into ``conn``."""
     loader = _DumpLoader(conn)
-    with open(path, encoding="utf-8", errors="replace") as f:
+    with path.open(encoding="utf-8", errors="replace") as f:
         while True:
             chunk = f.read(_CHUNK)
             if not chunk:

@@ -1,7 +1,8 @@
-from typing import cast
+from typing import ClassVar, cast
 
 from textual import on, work
 from textual.app import App, ComposeResult
+from textual.binding import BindingType
 from textual.containers import Horizontal
 from textual.timer import Timer
 from textual.widget import Widget
@@ -36,7 +37,7 @@ SEARCH_GROUP = "search"
 
 class FlTui(App):
     CSS_PATH = "fltui.tcss"
-    BINDINGS = [
+    BINDINGS: ClassVar[list[BindingType]] = [
         ("ctrl+s", "save", "Save book"),
         ("ctrl+y", "sync", "Sync mirror"),
         ("ctrl+o", "options", "Set options"),
@@ -176,21 +177,24 @@ class FlTui(App):
         if event.state == WorkerState.SUCCESS:
             active, results = cast(tuple[str, list], event.worker.result)
             self._populate_results(active, results)
-        if event.state in (
-            WorkerState.SUCCESS,
-            WorkerState.CANCELLED,
-            WorkerState.ERROR,
+        # Re-enable tab switching only once no search is left running, so a
+        # superseding search keeps the tabs blocked.
+        if (
+            event.state
+            in (
+                WorkerState.SUCCESS,
+                WorkerState.CANCELLED,
+                WorkerState.ERROR,
+            )
+            and not self._search_running()
         ):
-            # Re-enable tab switching only once no search is left running, so a
-            # superseding search keeps the tabs blocked.
-            if not self._search_running():
-                self.query_one(Tabs).disabled = False
-                for widget in (
-                    self._books_table,
-                    self._series_view,
-                    self._authors_view,
-                ):
-                    widget.loading = False
+            self.query_one(Tabs).disabled = False
+            for widget in (
+                self._books_table,
+                self._series_view,
+                self._authors_view,
+            ):
+                widget.loading = False
 
     @on(Input.Changed, "#search-input")
     def on_search_input(self, event: Input.Changed) -> None:

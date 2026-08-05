@@ -1,5 +1,4 @@
 import dataclasses
-import os
 import sqlite3
 import threading
 import zipfile
@@ -89,7 +88,7 @@ PRIMARY KEY(author_id, lib_id)
 """
 
 ARCHIVES_QUERY = """
-SELECT DISTINCT archive from files 
+SELECT DISTINCT archive from files
 """
 
 FILES_BY_NAME_QUERY = """
@@ -163,11 +162,11 @@ INSERT INTO authors_books (author_id, lib_id) VALUES (?, ?)
 """
 
 AUTHORS_SERIES_QUERY = """
-SELECT DISTINCT series_id FROM authors_series WHERE author_id=? 
+SELECT DISTINCT series_id FROM authors_series WHERE author_id=?
 """
 
 AUTHORS_BOOKS_QUERY = """
-SELECT DISTINCT lib_id FROM authors_books WHERE author_id=? 
+SELECT DISTINCT lib_id FROM authors_books WHERE author_id=?
 """
 
 
@@ -187,8 +186,8 @@ class TheLibrary:
         self._config = config
         self._index = BookIndex()
 
-        self._file_db_path = os.path.join(
-            platformdirs.user_cache_dir("flget", ensure_exists=True), "files.db"
+        self._file_db_path = (
+            Path(platformdirs.user_cache_dir("flget", ensure_exists=True)) / "files.db"
         )
         # files.db is read-only during search, which now runs in Textual thread
         # workers. SQLite connections are bound to their creating thread, so each
@@ -311,9 +310,7 @@ class TheLibrary:
         archive = getattr(self._local, "attached_zip", None)
         if archive is None:
             archive = zipfile.ZipFile(
-                os.path.join(
-                    platformdirs.user_cache_dir("flget"), "lib.b.attached.zip"
-                ),
+                Path(platformdirs.user_cache_dir("flget")) / "lib.b.attached.zip",
                 "r",
             )
             self._local.attached_zip = archive
@@ -457,31 +454,32 @@ class TheLibrary:
 
     def save(self, book_id: int, target_path: str) -> None:
         book_file = self._file_db.execute(FILES_QUERY, (book_id,)).fetchone()
+        libdir = Path(self._config.libdir())
         if book_file[0].lower().endswith(".zip"):
-            zippath = os.path.join(self._config.libdir(), book_file[0])
+            zippath = libdir / book_file[0]
         else:
-            zippath = os.path.join(self._config.libdir(), f"{book_file[0]}.zip")
+            zippath = libdir / f"{book_file[0]}.zip"
         member = self._archive_member_name(book_file[1], book_file[3])
         out_name = self.build_filename(book_id)
         with zipfile.ZipFile(zippath, "r") as archive:
             data = archive.read(member)
-        with open(os.path.join(target_path, out_name), "wb") as fh:
+        with (Path(target_path) / out_name).open("wb") as fh:
             fh.write(data)
 
     def _count_unknown_archives(self, progress_update: Callable[[float], None]) -> int:
         archives = set(x[0] for x in self._file_db.execute(ARCHIVES_QUERY).fetchall())
         unknown_archives = 0
-        files_in_lib = list(os.listdir(self._config.libdir()))
+        files_in_lib = list(Path(self._config.libdir()).iterdir())
         progress = 50.0 / float(len(files_in_lib))
-        for filename in files_in_lib:
+        for entry in files_in_lib:
             progress_update(progress)
-            if filename.lower().endswith(".zip"):
-                if (
-                    Path(filename.lower()).stem not in archives
-                    and filename.lower() not in archives
-                ):
-                    print(filename)
-                    unknown_archives += 1
+            name = entry.name.lower()
+            if (
+                name.endswith(".zip")
+                and Path(name).stem not in archives
+                and name not in archives
+            ):
+                unknown_archives += 1
         return unknown_archives
 
     def _count_unknown_entries(
@@ -494,22 +492,24 @@ class TheLibrary:
         for archive in archives:
             progress_update(progress)
             if archive.lower().endswith(".zip"):
-                archive_path = os.path.join(self._config.libdir(), archive)
+                archive_path = Path(self._config.libdir()) / archive
             else:
-                archive_path = os.path.join(self._config.libdir(), f"{archive}.zip")
-            if not Path(archive_path).exists():
+                archive_path = Path(self._config.libdir()) / f"{archive}.zip"
+            if not archive_path.exists():
                 missing_archives += 1
             else:
                 with zipfile.ZipFile(archive_path, "r") as zip_archive:
                     for member in zip_archive.namelist():
                         file_id = Path(member).stem
-                        if not self._file_db.execute(
-                            FILES_QUERY, (file_id,)
-                        ).fetchone():
-                            if not self._file_db.execute(
+                        if (
+                            not self._file_db.execute(
+                                FILES_QUERY, (file_id,)
+                            ).fetchone()
+                            and not self._file_db.execute(
                                 FILES_BY_NAME_QUERY, (member,)
-                            ).fetchone():
-                                unknown_entries += 1
+                            ).fetchone()
+                        ):
+                            unknown_entries += 1
         return unknown_entries, missing_archives
 
     def validate(

@@ -1,11 +1,13 @@
 import dataclasses
-import os
 import zipfile
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
 from flget.mirror import AuthorEntry, BookEntry, Mirror, SeriesBookLink, SeriesEntry
+
+INPX_FIELDS_SHORT = 15
+INPX_FIELDS_LONG = 17
 
 
 def multi_entry_clean(input: list[str]) -> list[str]:
@@ -22,13 +24,14 @@ def optional_int_parse(input: str) -> int:
 
 
 def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror:
-    if not os.path.exists(lib_dir):
+    lib_path = Path(lib_dir)
+    if not lib_path.exists():
         raise FileNotFoundError
 
     inpx_file = None
-    for f in os.listdir(lib_dir):
-        if f.lower().endswith(".inpx"):
-            inpx_file = os.path.join(lib_dir, f)
+    for f in lib_path.iterdir():
+        if f.name.lower().endswith(".inpx"):
+            inpx_file = f
             break
     if not inpx_file:
         raise FileNotFoundError
@@ -48,7 +51,7 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
                 info_raw = inpx.read(entry)
                 for line in info_raw.split(b"\r\n"):
                     book_entry = line.split(b"\x04")
-                    if len(book_entry) == 15 or len(book_entry) == 17:
+                    if len(book_entry) in (INPX_FIELDS_SHORT, INPX_FIELDS_LONG):
                         authors = multi_entry_clean(
                             book_entry[0].decode("UTF-8").split(":")
                         )
@@ -87,14 +90,14 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
                         date = datetime.strptime(  # noqa: DTZ007
                             book_entry[10].decode("UTF-8"), "%Y-%m-%d"
                         )
-                        if len(book_entry) == 15:
+                        if len(book_entry) == INPX_FIELDS_SHORT:
                             archive = Path(entry).stem
                             lang = book_entry[11].decode("UTF-8")
                             rating = optional_int_parse(book_entry[12].decode("UTF-8"))
                             keywords = multi_entry_clean(
                                 book_entry[13].decode("UTF-8").split(",")
                             )
-                        else:  # 17 fields INPX
+                        else:  # INPX_FIELDS_LONG
                             archive = book_entry[12].decode("UTF-8")
                             lang = book_entry[13].decode("UTF-8")
                             rating = optional_int_parse(book_entry[14].decode("UTF-8"))

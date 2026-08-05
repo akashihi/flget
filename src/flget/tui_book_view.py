@@ -78,7 +78,7 @@ class BookViewWidget(Widget):
         if book.series:
             self._series.update(
                 Text(
-                    #TODO Some book's series can not be parsed properly and it breaks parallelism of arrays :(
+                    # TODO Some book's series can not be parsed properly and it breaks parallelism of arrays :(
                     ",".join(
                         [
                             f"{s[0]} ({s[1]})"

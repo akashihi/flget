@@ -1,7 +1,10 @@
+from typing import ClassVar
+
 import humanize
 import typer
 from textual import on
 from textual.app import ComposeResult
+from textual.binding import BindingType
 from textual.containers import Grid, Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, SelectionList
@@ -12,7 +15,7 @@ from flget.library import TheLibrary
 
 
 class FilterScreen(ModalScreen[BookFilter | None]):
-    BINDINGS = [("escape", "close", "Close")]
+    BINDINGS: ClassVar[list[BindingType]] = [("escape", "close", "Close")]
 
     def __init__(self, parent, library: TheLibrary, current: BookFilter):
         super().__init__(parent)

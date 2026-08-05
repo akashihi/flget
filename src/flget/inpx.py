@@ -87,9 +87,10 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
                         libid = int(book_entry[7].decode("UTF-8"))
                         deleted = book_entry[8].decode("UTF-8") == "1"
                         ext = book_entry[9].decode("UTF-8")
-                        date = datetime.strptime(  # noqa: DTZ007
+                        # INPX dates are bare calendar dates; only the year is kept.
+                        year = datetime.strptime(  # noqa: DTZ007
                             book_entry[10].decode("UTF-8"), "%Y-%m-%d"
-                        )
+                        ).year
                         if len(book_entry) == INPX_FIELDS_SHORT:
                             archive = Path(entry).stem
                             lang = book_entry[11].decode("UTF-8")
@@ -108,9 +109,9 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
                         # INPX stores real names without an extension.
                         original_name = bool(filename) and filename != str(libid)
 
-                        books_count = BookEntry(
-                            authors,
+                        parsed_book = BookEntry(
                             [],
+                            authors,
                             genres,
                             title,
                             series_list,
@@ -120,30 +121,29 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
                             libid,
                             deleted,
                             ext,
-                            date,
+                            year,
                             lang,
                             rating,
                             keywords,
                             archive,
                             original_name,
                         )
-                        books[str(libid)] = books_count
+                        books[str(libid)] = parsed_book
 
-    authors = []
+    author_entries = []
     authors_index = {}
     for index, (name, books_count) in enumerate(authors_counter.items()):
         if name in authors_series_counter:
             series_count = authors_series_counter[name]
         else:
             series_count = None
-        authors.append(AuthorEntry(index, name, books_count, series_count))
+        author_entries.append(AuthorEntry(index, name, books_count, series_count))
         authors_index[name] = index
 
     for book_id, book in books.items():
         books[book_id] = dataclasses.replace(
             book,
-            authors=list(map(lambda x: authors_index[x], book.authors)),
-            author_names=book.authors,
+            authors=[authors_index[name] for name in book.author_names],
         )
 
     series = []
@@ -154,15 +154,15 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
         series_index[name] = index
 
     series_link = []
-    for book in filter(lambda b: b[1].series, books.items()):
+    for _book_id, book in filter(lambda b: b[1].series, books.items()):
         series_link.append(
             SeriesBookLink(
-                series_index.get(book[1].series[0]),
-                book[1].lib_id,
-                book[1].serno[0],
-                book[1].series[0],
-                book[1].authors,
+                series_index[book.series[0]],
+                book.lib_id,
+                book.serno[0],
+                book.series[0],
+                book.authors,
             )
         )
 
-    return Mirror(books, series, authors, series_link)
+    return Mirror(books, series, author_entries, series_link)

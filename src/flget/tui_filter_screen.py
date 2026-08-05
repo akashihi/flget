@@ -17,8 +17,8 @@ from flget.library import TheLibrary
 class FilterScreen(ModalScreen[BookFilter | None]):
     BINDINGS: ClassVar[list[BindingType]] = [("escape", "close", "Close")]
 
-    def __init__(self, parent, library: TheLibrary, current: BookFilter):
-        super().__init__(parent)
+    def __init__(self, library: TheLibrary, current: BookFilter) -> None:
+        super().__init__()
         self._library = library
         self._current = current
 

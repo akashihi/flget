@@ -10,10 +10,9 @@ import platformdirs
 
 from flget import naming
 from flget.config import Config
-from flget.filters import BookFilter, _book_year
+from flget.filters import BookFilter
 from flget.index import BookIndex
-from flget.inpx import AuthorEntry, BookEntry, SeriesEntry
-from flget.mirror import Mirror
+from flget.mirror import AuthorEntry, BookEntry, Mirror, SeriesEntry
 
 # Series larger than this are too generic to be useful in a filename, so the
 # series/serno segment is skipped for them.
@@ -251,7 +250,7 @@ class TheLibrary:
                     book.filename,
                     book.filesize,
                     book.ext,
-                    _book_year(book),
+                    book.year,
                     int(book.original_name),
                 ),
             )
@@ -295,7 +294,7 @@ class TheLibrary:
             filename=book_file[1],
             filesize=book_file[2],
             ext=book_file[3],
-            date=book_file[4],
+            year=book_file[4],
         )
 
     def fill_book_digest(self, book: BookEntry) -> BookEntry:
@@ -424,7 +423,11 @@ class TheLibrary:
         return [row[0] for row in self._file_db.execute(FORMATS_QUERY).fetchall()]
 
     @staticmethod
-    def _archive_member_name(file: str, ext: str) -> str:
+    def _archive_member_name(file: str | None, ext: str | None) -> str:
+        if not file:
+            return ""
+        if not ext:
+            return file
         return file if file.lower().endswith(f".{ext.lower()}") else f"{file}.{ext}"
 
     def build_filename(self, book_id: int) -> str:
@@ -438,7 +441,7 @@ class TheLibrary:
             return self._archive_member_name(file, ext)
         book = books[0]
 
-        author = book.authors[0] if book.authors else None
+        author = book.author_names[0] if book.author_names else None
 
         series: str | None = None
         serno: int | None = None
@@ -449,7 +452,7 @@ class TheLibrary:
             series, serno = name, position
 
         return naming.build_book_filename(
-            author, series, serno, book.title, book_id, book.ext, book.lang
+            author, series, serno, book.title, book_id, book.ext or "", book.lang
         )
 
     def save(self, book_id: int, target_path: str) -> None:
@@ -534,7 +537,8 @@ class TheLibrary:
         return result
 
     def get_series_name(self, series_id: int) -> str:
-        return self._file_db.execute(SERIES_NAME_QUERY, (series_id,)).fetchone()[0]
+        row = self._file_db.execute(SERIES_NAME_QUERY, (series_id,)).fetchone()
+        return str(row[0])
 
     def get_series(
         self, series_id: int, is_cancelled: Callable[[], bool] = _never_cancelled

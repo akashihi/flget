@@ -8,15 +8,15 @@ from textual.containers import Grid
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label
 
-from flget.inpx import BookEntry
 from flget.library import TheLibrary
+from flget.mirror import BookEntry
 
 
-class SaveScreen(ModalScreen):
+class SaveScreen(ModalScreen[None]):
     BINDINGS: ClassVar[list[BindingType]] = [("escape", "close", "Close")]
 
-    def __init__(self, parent, library: TheLibrary, book: BookEntry):
-        super().__init__(parent)
+    def __init__(self, library: TheLibrary, book: BookEntry) -> None:
+        super().__init__()
         self._book = book
         self._library = library
         self._filename_input = Input(
@@ -36,17 +36,17 @@ class SaveScreen(ModalScreen):
         )
 
     @on(Button.Pressed, "#save-cancel")
-    def on_cancel_clicked(self):
+    def on_cancel_clicked(self) -> None:
         self.dismiss()
 
     @on(Input.Submitted, "#save-input")
     @on(Button.Pressed, "#save-commit")
-    def on_save_clicked(self):
+    def on_save_clicked(self) -> None:
         self._library.save(self._book.lib_id, self._filename_input.value)
         self.dismiss()
 
-    def action_save(self):
+    def action_save(self) -> None:
         self.on_save_clicked()
 
-    def action_close(self):
+    def action_close(self) -> None:
         self.dismiss()

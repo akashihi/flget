@@ -1,11 +1,12 @@
 from pathlib import Path
+from typing import Any, cast
 
 import platformdirs
 from tomlkit import comment, document, dump, load, nl, table
 
 
 class Config:
-    def __init__(self):
+    def __init__(self) -> None:
         flget_config_dir = platformdirs.user_config_dir("flget", ensure_exists=True)
         flget_config = Path(flget_config_dir) / "flget.toml"
 
@@ -14,14 +15,14 @@ class Config:
         if flget_config.exists():
             with flget_config.open() as config_file:
                 doc = load(config_file)
-                self._libdir = doc["flget"]["libdir"]
+                self._libdir = str(cast("Any", doc)["flget"]["libdir"])
         else:
             self._libdir = platformdirs.user_documents_dir()
 
-    def libdir(self):
+    def libdir(self) -> str:
         return self._libdir
 
-    def set_libdir(self, path: str):
+    def set_libdir(self, path: str) -> None:
         doc = document()
         doc.add(comment("flget/fltui configuration file."))
         doc.add(nl())

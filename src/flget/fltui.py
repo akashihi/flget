@@ -1,4 +1,4 @@
-from typing import ClassVar, cast
+from typing import Any, ClassVar, cast
 
 from textual import on, work
 from textual.app import App, ComposeResult
@@ -19,8 +19,8 @@ from textual.worker import Worker, WorkerState, get_current_worker
 
 from flget.config import Config
 from flget.filters import BookFilter
-from flget.inpx import BookEntry
 from flget.library import TheLibrary
+from flget.mirror import BookEntry
 from flget.tui_authors_tab import AuthorsWidget
 from flget.tui_book_table import BookTable
 from flget.tui_book_view import BookViewWidget
@@ -35,7 +35,7 @@ SHORT_DEBOUNCE = 0.3
 SEARCH_GROUP = "search"
 
 
-class FlTui(App):
+class FlTui(App[None]):
     CSS_PATH = "fltui.tcss"
     BINDINGS: ClassVar[list[BindingType]] = [
         ("ctrl+s", "save", "Save book"),
@@ -84,15 +84,13 @@ class FlTui(App):
     @work
     async def action_save(self) -> None:
         if self._selected_book:
-            await self.push_screen_wait(
-                SaveScreen(self, self._library, self._selected_book)
-            )
+            await self.push_screen_wait(SaveScreen(self._library, self._selected_book))
 
     @work
     @on(Button.Pressed, "#filter-books")
     async def action_filter(self) -> None:
         result = await self.push_screen_wait(
-            FilterScreen(self, self._library, self._book_filter)
+            FilterScreen(self._library, self._book_filter)
         )
         if result is not None:  # None == cancelled
             self._book_filter = result
@@ -115,7 +113,7 @@ class FlTui(App):
             return self._authors_view
         return self._books_table
 
-    def _populate_results(self, active: str, results: list) -> None:
+    def _populate_results(self, active: str, results: list[Any]) -> None:
         if active == "tab-books":
             self._books_table.populate(results)
         elif active == "tab-series":
@@ -159,7 +157,7 @@ class FlTui(App):
     @work(thread=True, exclusive=True, group=SEARCH_GROUP)
     def _search_worker(
         self, active: str, query: str, book_filter: BookFilter
-    ) -> tuple[str, list]:
+    ) -> tuple[str, list[Any]]:
         worker = get_current_worker()
         is_cancelled = worker.cancelled_event.is_set
         if active == "tab-series":
@@ -175,7 +173,7 @@ class FlTui(App):
         if event.worker.group != SEARCH_GROUP:
             return
         if event.state == WorkerState.SUCCESS:
-            active, results = cast(tuple[str, list], event.worker.result)
+            active, results = cast(tuple[str, list[Any]], event.worker.result)
             self._populate_results(active, results)
         # Re-enable tab switching only once no search is left running, so a
         # superseding search keeps the tabs blocked.
@@ -217,7 +215,7 @@ class FlTui(App):
             self._selected_book = None
 
 
-def main():
+def main() -> None:
     app = FlTui()
     app.run()
 

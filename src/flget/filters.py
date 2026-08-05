@@ -1,6 +1,5 @@
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from datetime import datetime
 
 import typer
 
@@ -111,23 +110,6 @@ def parse_size(text: str) -> int:
     return int(value * _SIZE_UNITS[unit])
 
 
-def _book_year(book: BookEntry) -> int | None:
-    """Best-effort extraction of a publication year from ``BookEntry.date``,
-    which may be a ``datetime`` (INPX), a string year (dbsync), an int (after
-    files.db refill) or ``None``."""
-    date = book.date
-    if date is None:
-        return None
-    if isinstance(date, datetime):
-        return date.year
-    if isinstance(date, int):
-        return date
-    try:
-        return int(str(date)[:4])
-    except (ValueError, TypeError):
-        return None
-
-
 @dataclass(frozen=True)
 class BookFilter:
     genres: frozenset[str] = frozenset()
@@ -155,14 +137,14 @@ class BookFilter:
             if not book_genres & self.genres:
                 return False
 
-        if self.formats and book.ext.lower() not in self.formats:
+        if self.formats and (book.ext or "").lower() not in self.formats:
             return False
 
         if self.languages and book.lang.lower() not in self.languages:
             return False
 
         if self.year_from is not None or self.year_to is not None:
-            year = _book_year(book)
+            year = book.year
             if year is None:
                 return False
             if self.year_from is not None and year < self.year_from:
@@ -170,9 +152,13 @@ class BookFilter:
             if self.year_to is not None and year > self.year_to:
                 return False
 
-        if self.min_size is not None and book.filesize < self.min_size:
+        if self.min_size is not None and (
+            book.filesize is None or book.filesize < self.min_size
+        ):
             return False
-        if self.max_size is not None and book.filesize > self.max_size:
+        if self.max_size is not None and (
+            book.filesize is None or book.filesize > self.max_size
+        ):
             return False
 
         return True

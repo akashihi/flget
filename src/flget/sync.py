@@ -5,10 +5,11 @@ from rich.progress import Progress
 from flget.config import Config
 from flget.dbsync import build_mirror, db_import_dumps, decompress_dumps, get_dumps
 from flget.inpx import parse_inpx
-from flget.library import TheLibrary
+from flget.library import MirrorValidationResult, TheLibrary
+from flget.mirror import Mirror
 
 
-def validate_mirror(library: TheLibrary):
+def validate_mirror(library: TheLibrary) -> MirrorValidationResult:
     with Progress() as progress:
         mirror_task = progress.add_task(
             total=100, description="[green]Scanning local mirror"
@@ -21,7 +22,9 @@ def validate_mirror(library: TheLibrary):
     return validation_results
 
 
-def report_validation_results(console, validation_results):
+def report_validation_results(
+    console: Console, validation_results: MirrorValidationResult
+) -> None:
     if validation_results.missing_archives > 0:
         console.print(
             f"Found {validation_results.missing_archives} missing archives, please check your mirror.",
@@ -39,7 +42,7 @@ def report_validation_results(console, validation_results):
         )
 
 
-def index_books(inpx_mirror, library):
+def index_books(inpx_mirror: Mirror, library: TheLibrary) -> None:
     with Progress() as progress:
         index_task = progress.add_task(
             total=100, description="[spring_green4]Indexing books"

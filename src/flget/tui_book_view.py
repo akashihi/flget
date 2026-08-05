@@ -12,9 +12,9 @@ from textual.widgets import Collapsible, Markdown, Static
 from textual.worker import Worker, WorkerState
 from textual_image.widget import Image as CoverImage
 
-from flget.filters import _book_year, genre_display_names, language_display
-from flget.inpx import BookEntry
+from flget.filters import genre_display_names, language_display
 from flget.library import TheLibrary
+from flget.mirror import BookEntry
 
 COVER_GROUP = "cover"
 
@@ -65,7 +65,7 @@ class BookViewWidget(Widget):
 
         title_text = Text(justify="center")
         title_text.append(book.title, style="bold")
-        year = _book_year(book)
+        year = book.year
         if year is not None:
             title_text.append(f" ({year})")
         if book.rating > 0:
@@ -73,7 +73,11 @@ class BookViewWidget(Widget):
         self._title.update(title_text)
 
         self._author.update(
-            Text(",".join(book.authors), justify="center", style="bold sea_green1")
+            Text(
+                ",".join(book.author_names),
+                justify="center",
+                style="bold sea_green1",
+            )
         )
         if book.series:
             self._series.update(
@@ -97,7 +101,7 @@ class BookViewWidget(Widget):
         self._keywords.update(Text(",".join(book.keywords), style="deep_sky_blue4"))
 
         file_data = Text(
-            f"{self._library._archive_member_name(book.filename, book.ext)} ({humanize.naturalsize(book.filesize, gnu=True)}) Language: {language_display(book.lang)}",
+            f"{self._library._archive_member_name(book.filename, book.ext)} ({humanize.naturalsize(book.filesize or 0, gnu=True)}) Language: {language_display(book.lang)}",
             style="magenta",
         )
         self._file_data.update(file_data)

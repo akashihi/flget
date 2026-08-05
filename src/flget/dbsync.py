@@ -181,7 +181,8 @@ def _meta_path(cache_dir: str) -> Path:
 def _load_meta(cache_dir: str) -> dict[str, Any]:
     try:
         with _meta_path(cache_dir).open() as f:
-            return json.load(f)
+            loaded: dict[str, Any] = json.load(f)
+            return loaded
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
@@ -225,7 +226,7 @@ def _download_file(
     return local_filename
 
 
-def get_dumps(progress_update: Callable[[float], None], force: bool = False):
+def get_dumps(progress_update: Callable[[float], None], force: bool = False) -> None:
     flget_cache_dir = platformdirs.user_cache_dir("flget", ensure_exists=True)
     meta = _load_meta(flget_cache_dir)
     all_downloads = DB_FILE + ATTACHMENT_FILE
@@ -236,7 +237,7 @@ def get_dumps(progress_update: Callable[[float], None], force: bool = False):
         progress_update(progress)
 
 
-def decompress_dumps(progress_update: Callable[[float], None]):
+def decompress_dumps(progress_update: Callable[[float], None]) -> None:
     flget_cache_dir = platformdirs.user_cache_dir("flget", ensure_exists=True)
     progress = 100.0 / len(DB_FILE)
     cache_dir = Path(flget_cache_dir)
@@ -250,7 +251,7 @@ def decompress_dumps(progress_update: Callable[[float], None]):
         progress_update(progress)
 
 
-def db_import_dumps(progress_update: Callable[[float], None]):
+def db_import_dumps(progress_update: Callable[[float], None]) -> None:
     flget_cache_dir = platformdirs.user_cache_dir("flget")
     db_path = _db_path(flget_cache_dir)
 
@@ -351,7 +352,7 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
         serno_list = [int(x) for x in serno.split(",")] if series else []
 
         book = BookEntry(
-            authors.split(",") if authors else [],
+            [int(a) for a in authors.split(",")] if authors else [],
             author_names.split(",") if authors else [],
             genres.split(",") if genres else [],
             title,
@@ -359,10 +360,10 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
             serno_list,
             filename,
             filesize,
-            str(libid),
+            libid,
             False,
             ext,
-            str(year),
+            int(year[:4]) if year else None,
             lang,
             rating,
             keywords.split(",") if keywords else [],
@@ -400,7 +401,11 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
     for series_id, book_id, serno, series_name, series_authors in db_cursor:
         series_index.append(
             SeriesBookLink(
-                series_id, book_id, serno, series_name, series_authors.split(",")
+                series_id,
+                book_id,
+                serno,
+                series_name,
+                [int(a) for a in series_authors.split(",")],
             )
         )
 

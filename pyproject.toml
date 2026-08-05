@@ -87,13 +87,15 @@ ban-relative-imports = "all"
 [tool.mypy]
 python_version = "3.12"
 files = ["src/flget"]
+strict = true
 
-# whoosh ships no type stubs / py.typed marker.
+# These ship no type stubs / py.typed marker.
 [[tool.mypy.overrides]]
-module = "whoosh.*"
+module = ["whoosh.*", "cyrtranslit.*", "unidecode.*", "pyfiglet.*"]
 ignore_missing_imports = true
 
-# cyrtranslit and unidecode ship no type stubs.
+# whoosh's WrappingCollector is Any without stubs, and CancellableCollector
+# must subclass it.
 [[tool.mypy.overrides]]
-module = ["cyrtranslit.*", "unidecode.*"]
-ignore_missing_imports = true
+module = "flget.index"
+disallow_subclassing_any = false

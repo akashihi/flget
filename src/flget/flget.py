@@ -16,8 +16,8 @@ from textual_image.renderable import Image as CoverRenderable
 from flget import filters
 from flget.config import Config
 from flget.filters import BookFilter
-from flget.inpx import BookEntry
 from flget.library import TheLibrary
+from flget.mirror import BookEntry
 from flget.sync import mirror_sync
 
 app = typer.Typer()
@@ -201,7 +201,7 @@ def _book_list_render(title: str, books: list[BookEntry]) -> None:
         table.add_row(
             str(book.lib_id),
             book.title,
-            ", ".join(book.authors),
+            ", ".join(book.author_names),
             ", ".join(filters.genre_display_names(book.genres, genre_titles)),
             str(book.rating) if book.rating >= 0 else "",
             ", ".join(book.keywords),
@@ -273,7 +273,7 @@ def show_book(book_id: int) -> None:
         console.print(CoverRenderable(io.BytesIO(cover), width="auto", height=20))
 
     output = Text()
-    output.append(f"Authors: {', '.join(book.authors)}\n", style="bold sea_green1")
+    output.append(f"Authors: {', '.join(book.author_names)}\n", style="bold sea_green1")
     if book.series:
         # TODO Some book's series can not be parsed properly and it breaks parallelism of arrays :(
         series_list = [
@@ -289,14 +289,14 @@ def show_book(book_id: int) -> None:
         style="indian_red1",
     )
     output.append(f"Keywords: {', '.join(book.keywords)}\n", style="deep_sky_blue4")
-    year = filters._book_year(book)
+    year = book.year
     if year is not None:
         output.append(f"Year: {year}\n", style="indian_red1")
     output.append(
         f"Language: {filters.language_display(book.lang)}\n", style="indian_red1"
     )
     output.append(
-        f"{library._archive_member_name(book.filename, book.ext)} in {config.libdir()}{book.archive}.zip ({humanize.naturalsize(book.filesize, gnu=True)} bytes)\n",
+        f"{library._archive_member_name(book.filename, book.ext)} in {config.libdir()}{book.archive}.zip ({humanize.naturalsize(book.filesize or 0, gnu=True)} bytes)\n",
         style="magenta",
     )
     console.print(Panel(output, title=book.title, subtitle=str(book.lib_id)))
@@ -390,7 +390,7 @@ def filters_languages() -> None:
 
 
 @app.command()
-def set_library_path(path: str):
+def set_library_path(path: str) -> None:
     """
     Set and store PATH to the flibusta mirror.
     """
@@ -401,7 +401,7 @@ def set_library_path(path: str):
     )
 
 
-def main():
+def main() -> None:
     # Banner
     f = pyfiglet.figlet_format("FlGet", font="univers")
     console.print(f, style="chartreuse4")

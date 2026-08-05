@@ -84,29 +84,29 @@ def _book_result_to_entry(book_result: Hit) -> BookEntry:
     # The file-resolution fields (filename/filesize/deleted/ext/date/archive) are
     # None on an index-only entry; TheLibrary._refill_book fills them from files.db.
     return BookEntry(
-        book_result["authors"].split(","),
         [],
+        book_result["authors"].split(","),
         book_result["genres"].split(" "),
         book_result["title"],
         book_result["series"].split(",") if book_result["series"] else [],
         [int(x) for x in book_result["serno"].split(",")]
         if book_result["serno"]
         else [],
-        None,  # type: ignore[arg-type]
-        None,  # type: ignore[arg-type]
-        book_result["lib_id"],
-        None,  # type: ignore[arg-type]
-        None,  # type: ignore[arg-type]
-        None,  # type: ignore[arg-type]
+        None,
+        None,
+        int(book_result["lib_id"]),
+        None,
+        None,
+        None,
         book_result["lang"],
         book_result["rating"],
         book_result["keywords"].split(","),
-        None,  # type: ignore[arg-type]
+        None,
     )
 
 
 class BookIndex:
-    def __init__(self):
+    def __init__(self) -> None:
         self._book_schema = Schema(
             title=TEXT(analyzer=StemmingAnalyzer(), stored=True),
             lib_id=ID(stored=True),
@@ -135,7 +135,9 @@ class BookIndex:
         self._author_index = _open_index("author", self._author_schema)
         self._series_index = _open_index("series", self._series_schema)
 
-    def create_index(self, mirror: Mirror, progress__update: Callable[[float], None]):
+    def create_index(
+        self, mirror: Mirror, progress__update: Callable[[float], None]
+    ) -> None:
         a_writer = self._author_index.writer()
         a_writer.commit(mergetype=writing.CLEAR)
         a_writer = self._author_index.writer(procs=32, multisegment=True)
@@ -211,7 +213,7 @@ class BookIndex:
         with self._author_index.searcher() as searcher:
             corrected = searcher.correct_query(q, query)
             if corrected.query != q:
-                return corrected.string
+                return str(corrected.string)
             return None
 
     def search_series(
@@ -239,7 +241,7 @@ class BookIndex:
         with self._series_index.searcher() as searcher:
             corrected = searcher.correct_query(q, query)
             if corrected.query != q:
-                return corrected.string
+                return str(corrected.string)
             return None
 
     def search_books(

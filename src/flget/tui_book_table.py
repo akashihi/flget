@@ -1,14 +1,16 @@
+from typing import Any
+
 from rich.text import Text
 from textual import on
 from textual.widgets import DataTable
 from textual.widgets._data_table import ColumnKey, RowKey
 
 from flget.filters import genre_display_names, language_display
-from flget.inpx import BookEntry
 from flget.library import TheLibrary
+from flget.mirror import BookEntry
 
 
-class BookTable(DataTable):
+class BookTable(DataTable[Any]):
     def __init__(self, widget_id: str, library: TheLibrary):
         super().__init__(cursor_type="row", id=widget_id)
         self._library = library
@@ -68,7 +70,7 @@ class BookTable(DataTable):
         self.add_row(
             book.lib_id,
             book.title,
-            ",".join(book.authors),
+            ",".join(book.author_names),
             ",".join(genre_display_names(book.genres, titles)),
             book.rating if book.rating > 0 else "",
             ",".join(book.keywords),

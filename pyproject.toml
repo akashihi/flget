@@ -30,8 +30,6 @@ flget = "flget.flget:main"
 fltui = "flget.fltui:main"
 
 [dependency-groups]
-# Versions kept in lockstep with .pre-commit-config.yaml so `uv run` and the
-# pre-commit hooks lint/format identically.
 dev = [
     "ruff==0.16.1",
     "mypy==2.3.0",
@@ -45,14 +43,46 @@ dev = [
 [build-system]
 requires = ["uv_build>=0.11,<0.12"]
 build-backend = "uv_build"
-# src layout (src/flget) is uv_build's default, so no [tool.uv.build-backend] override needed.
 
 [tool.codespell]
-# GOST is the Russian transliteration standard referenced in naming.py, not a typo.
 ignore-words-list = "gost"
 
 [tool.ruff]
 target-version = "py312"
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F",
+    "I",
+    "N",
+    "UP",
+    "B",
+    "A",
+    "C4",
+    "DTZ",
+    "ISC", "PIE", "T20", "RET", "SIM", "TID", "ARG", "PTH",
+    "PL",
+    "TRY", "PERF", "RUF",
+    "S",
+    "LOG", "G",      # logging correctness
+]
+ignore = [
+    "E501",
+    "ISC001",  # conflicts with ruff-format
+    "TRY003",
+    # Typer commands legitimately take many options.
+    "PLR0913",
+    "PLR0917",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Typer derives the CLI flag from the parameter name/
+"src/flget/flget.py" = ["A002"]
+"src/flget/naming.py" = ["RUF001"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
 
 [tool.mypy]
 python_version = "3.12"

@@ -41,7 +41,7 @@ def _build_search_query(schema: Schema, fieldname: str, qstring: str) -> Query:
     return parts[0] if len(parts) == 1 else And(parts)
 
 
-class SearchCancelled(Exception):
+class SearchCancelled(Exception):  # noqa: N818 - control flow, not an error
     """Raised by :class:`_CancellableCollector` when the external cancellation
     flag is set, aborting an in-flight Whoosh search."""
 

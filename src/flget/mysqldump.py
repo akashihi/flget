@@ -30,6 +30,14 @@ _CREATE_RE = re.compile(
 _INSERT_RE = re.compile(r"\s*INSERT\s+INTO\s+`([^`]+)`\s+VALUES\s*", re.IGNORECASE)
 _COLUMN_RE = re.compile(r"^`([^`]+)`")
 
+
+def _quote_ident(name: str) -> str:
+    """Quote a SQLite identifier. The dump's backtick capture allows a literal
+    ``"``, so it has to be doubled rather than trusted."""
+    escaped = name.replace('"', '""')
+    return f'"{escaped}"'
+
+
 # MySQL backslash escape sequences. Anything not listed maps to itself
 # (``\x`` -> ``x``), which matches MySQL's behaviour.
 _UNESCAPE = {
@@ -83,24 +91,26 @@ class _DumpLoader:
         m = _CREATE_RE.match(statement)
         if not m:
             return
-        table = m.group(1)
+        table = _quote_ident(m.group(1))
         columns = _parse_columns(m.group(2))
         if not columns:
             return
-        cols_sql = ", ".join(f'"{c}"' for c in columns)
-        self._conn.execute(f'DROP TABLE IF EXISTS "{table}"')
-        self._conn.execute(f'CREATE TABLE "{table}" ({cols_sql})')
+        cols_sql = ", ".join(_quote_ident(c) for c in columns)
+        self._conn.execute(f"DROP TABLE IF EXISTS {table}")
+        self._conn.execute(f"CREATE TABLE {table} ({cols_sql})")
 
     def _insert(self, statement: str) -> None:
         m = _INSERT_RE.match(statement)
         if not m:
             return
-        table = m.group(1)
+        table = _quote_ident(m.group(1))
         rows = _parse_values(statement, m.end())
         if not rows:
             return
         placeholders = ", ".join("?" * len(rows[0]))
-        self._conn.executemany(f'INSERT INTO "{table}" VALUES ({placeholders})', rows)
+        # Identifier is escaped above; values always go through ?-params.
+        sql = f"INSERT INTO {table} VALUES ({placeholders})"  # noqa: S608
+        self._conn.executemany(sql, rows)
 
 
 def load_dump(conn: sqlite3.Connection, path: Path) -> None:
@@ -201,7 +211,7 @@ def _read_string(s: str, i: int) -> tuple[str, int]:
     parts: list[str] = []
     while True:
         m = _INSIDE.search(s, i)
-        assert m is not None  # statement is complete, so the string closes
+        assert m is not None  # noqa: S101 - statement is complete, so the string closes
         parts.append(s[i : m.start()])
         if m.group() == "'":
             return "".join(parts), m.end()
@@ -211,7 +221,7 @@ def _read_string(s: str, i: int) -> tuple[str, int]:
 
 
 def _parse_scalar(token: str) -> Any | None:
-    if token == "NULL":
+    if token == "NULL":  # noqa: S105 - a lexer token, not a credential
         return None
     if token[:2] in ("0x", "0X"):
         return bytes.fromhex(token[2:])

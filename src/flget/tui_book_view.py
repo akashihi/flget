@@ -1,6 +1,9 @@
 import io
-from typing import Optional, cast
+from typing import cast
 
+import humanize
+from rich.emoji import Emoji
+from rich.text import Text
 from textual import on, work
 from textual.app import ComposeResult
 from textual.containers import Horizontal, VerticalScroll
@@ -8,12 +11,9 @@ from textual.widget import Widget
 from textual.widgets import Collapsible, Markdown, Static
 from textual.worker import Worker, WorkerState
 from textual_image.widget import Image as CoverImage
-from rich.text import Text
-from rich.emoji import Emoji
-import humanize
 
-from flget.inpx import BookEntry
 from flget.filters import _book_year, genre_display_names, language_display
+from flget.inpx import BookEntry
 from flget.library import TheLibrary
 
 COVER_GROUP = "cover"
@@ -27,7 +27,7 @@ class BookViewWidget(Widget):
 
         self._cover_image = CoverImage(id="book-cover")
         self._cover_image.display = False
-        self._current_lib_id: Optional[int] = None
+        self._current_lib_id: int | None = None
 
         self._title = Static("")
         self._author = Static("")
@@ -107,14 +107,14 @@ class BookViewWidget(Widget):
             self._reviews.update(book.reviews)
 
     @work(thread=True, exclusive=True, group=COVER_GROUP)
-    def _load_cover(self, lib_id: int) -> tuple[int, Optional[bytes]]:
+    def _load_cover(self, lib_id: int) -> tuple[int, bytes | None]:
         return lib_id, self._library.get_cover(lib_id)
 
     @on(Worker.StateChanged)
     def on_cover_worker_state(self, event: Worker.StateChanged) -> None:
         if event.worker.group != COVER_GROUP or event.state != WorkerState.SUCCESS:
             return
-        lib_id, data = cast("tuple[int, Optional[bytes]]", event.worker.result)
+        lib_id, data = cast("tuple[int, bytes | None]", event.worker.result)
         # Thread cancellation is cooperative, so a superseded lookup can still
         # reach SUCCESS; the id check drops its stale result.
         if lib_id != self._current_lib_id:

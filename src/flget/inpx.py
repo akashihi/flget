@@ -1,11 +1,11 @@
 import dataclasses
 import os
 import zipfile
-from pathlib import Path
+from collections.abc import Callable
 from datetime import datetime
-from typing import Callable
+from pathlib import Path
 
-from flget.mirror import BookEntry, AuthorEntry, SeriesEntry, Mirror, SeriesBookLink
+from flget.mirror import AuthorEntry, BookEntry, Mirror, SeriesBookLink, SeriesEntry
 
 
 def multi_entry_clean(input: list[str]) -> list[str]:

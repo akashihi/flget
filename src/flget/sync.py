@@ -1,12 +1,11 @@
-from flget.dbsync import get_dumps, decompress_dumps, build_mirror, db_import_dumps
-from flget.library import TheLibrary
+from prompt_toolkit import prompt
+from rich.console import Console
 from rich.progress import Progress
 
-from prompt_toolkit import prompt
-
 from flget.config import Config
+from flget.dbsync import build_mirror, db_import_dumps, decompress_dumps, get_dumps
 from flget.inpx import parse_inpx
-from rich.console import Console
+from flget.library import TheLibrary
 
 
 def validate_mirror(library: TheLibrary):

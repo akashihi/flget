@@ -1,21 +1,22 @@
 import dataclasses
 import json
 import math
+import os
+import shutil
 import sqlite3
+from collections.abc import Callable
 from gzip import GzipFile
 from os import listdir
 from os.path import isfile, join
-from typing import Any, Callable, Dict, List, Optional
-import shutil
+from typing import Any
 from zipfile import ZipFile
 
-import requests
-import os
 import platformdirs
+import requests
 from markdownify import markdownify
 
+from flget.mirror import AuthorEntry, BookEntry, Mirror, SeriesBookLink, SeriesEntry
 from flget.mysqldump import load_dump
-from flget.mirror import Mirror, BookEntry, AuthorEntry, SeriesEntry, SeriesBookLink
 
 FLIBUSTA_DB_PAGE = "https://flibusta.is/sql/{}"
 DB_FILE = [
@@ -129,7 +130,7 @@ def _db_path(cache_dir: str) -> str:
     return os.path.join(cache_dir, "flibusta.db")
 
 
-def _html_to_markdown(html: Optional[str]) -> str:
+def _html_to_markdown(html: str | None) -> str:
     if not html:
         return ""
     return markdownify(html).strip()
@@ -154,14 +155,14 @@ class _OrderedConcat:
     """
 
     def __init__(self) -> None:
-        self._items: List[Any] = []
+        self._items: list[Any] = []
 
     def step(self, *values: Any) -> None:
         value, sortkey = values
         if value is not None:
             self._items.append((sortkey, value))
 
-    def finalize(self) -> Optional[str]:
+    def finalize(self) -> str | None:
         seen = set()
         out = []
         for _, value in sorted(self._items, key=lambda x: (x[0] is None, x[0])):
@@ -184,26 +185,26 @@ def _meta_path(cache_dir: str) -> str:
     return os.path.join(cache_dir, "dumps_meta.json")
 
 
-def _load_meta(cache_dir: str) -> Dict[str, Any]:
+def _load_meta(cache_dir: str) -> dict[str, Any]:
     try:
-        with open(_meta_path(cache_dir), "r") as f:
+        with open(_meta_path(cache_dir)) as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
 
-def _save_meta(cache_dir: str, meta: Dict[str, Any]) -> None:
+def _save_meta(cache_dir: str, meta: dict[str, Any]) -> None:
     with open(_meta_path(cache_dir), "w") as f:
         json.dump(meta, f)
 
 
 def _download_file(
-    target_dir: str, dump: str, meta: Dict[str, Any], force: bool = False
+    target_dir: str, dump: str, meta: dict[str, Any], force: bool = False
 ) -> str:
     url = FLIBUSTA_DB_PAGE.format(dump)
     local_filename = os.path.join(target_dir, url.split("/")[-1])
 
-    headers: Dict[str, str] = {}
+    headers: dict[str, str] = {}
     entry = meta.get(dump)
     if not force and entry and os.path.isfile(local_filename):
         size = entry.get("size")
@@ -283,7 +284,7 @@ def db_import_dumps(progress_update: Callable[[float], None]):
     con.close()
 
 
-def _build_archives_map(lib_dir: str) -> Dict[str, str]:
+def _build_archives_map(lib_dir: str) -> dict[str, str]:
     archives_map = {}
     archive = [
         f
@@ -341,8 +342,7 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
         elif filename:
             if filename not in archives_map:
                 continue
-            else:
-                archive = archives_map[filename]
+            archive = archives_map[filename]
             original_name = True
         else:
             filename = f"{libid}.{ext}"
@@ -414,7 +414,7 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
             genre_titles[code.lower()] = desc
 
     # Pre-render annotations/reviews to Markdown and attach to the books
-    annotation_md: Dict[str, str] = {}
+    annotation_md: dict[str, str] = {}
     db_cursor.execute(ANNOTATIONS_QUERY)
     for book_id, body in db_cursor:
         key = str(book_id)
@@ -427,7 +427,7 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
             f"{annotation_md[key]}\n\n{md}" if key in annotation_md else md
         )
 
-    review_md: Dict[str, str] = {}
+    review_md: dict[str, str] = {}
     db_cursor.execute(REVIEWS_QUERY)
     for book_id, name, time, text in db_cursor:
         key = str(book_id)
@@ -439,7 +439,7 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
         block = f"**{name or 'Anonymous'}** — _{time}_\n\n{body}\n\n---\n"
         review_md[key] = review_md[key] + block if key in review_md else block
 
-    cover_map: Dict[str, str] = {}
+    cover_map: dict[str, str] = {}
     db_cursor.execute(PICS_QUERY)
     for book_id, file in db_cursor:
         key = str(book_id)

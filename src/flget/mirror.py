@@ -1,6 +1,6 @@
+from collections.abc import ItemsView
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, Dict, ItemsView
 
 
 @dataclass(frozen=True)
@@ -8,7 +8,7 @@ class AuthorEntry:
     id: int
     name: str
     books: int
-    series: Optional[int]
+    series: int | None
 
 
 @dataclass(frozen=True)
@@ -55,11 +55,11 @@ class SeriesBookLink:
 class Mirror:
     def __init__(
         self,
-        books: Dict[str, BookEntry],
+        books: dict[str, BookEntry],
         series: list[SeriesEntry],
         authors: list[AuthorEntry],
         series_books: list[SeriesBookLink],
-        genre_titles: Optional[Dict[str, str]] = None,
+        genre_titles: dict[str, str] | None = None,
     ):
         self._books = books
         self._series = series
@@ -82,5 +82,5 @@ class Mirror:
     def series_books(self) -> list[SeriesBookLink]:
         return self._series_books
 
-    def genre_titles(self) -> Dict[str, str]:
+    def genre_titles(self) -> dict[str, str]:
         return self._genre_titles

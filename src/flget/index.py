@@ -1,21 +1,17 @@
-from typing import Optional, Callable
+import os
+from collections.abc import Callable
 
 import platformdirs
-import os
-
 from whoosh import index, writing
 from whoosh.analysis import StemmingAnalyzer
 from whoosh.collectors import Collector, WrappingCollector
-from whoosh.fields import Schema, TEXT, ID, NUMERIC, KEYWORD
+from whoosh.fields import ID, KEYWORD, NUMERIC, TEXT, Schema
 from whoosh.index import FileIndex
 from whoosh.qparser import QueryParser
 from whoosh.query import And, FuzzyTerm, NullQuery, Or, Prefix, Query, Term
 from whoosh.searching import Hit
 
-from flget.mirror import SeriesEntry
-from flget.mirror import AuthorEntry
-from flget.mirror import BookEntry
-from flget.mirror import Mirror
+from flget.mirror import AuthorEntry, BookEntry, Mirror, SeriesEntry
 
 
 def _never_cancelled() -> bool:
@@ -208,15 +204,14 @@ class BookIndex:
             ]
             return entries
 
-    def suggest_authors(self, query: str) -> Optional[str]:
+    def suggest_authors(self, query: str) -> str | None:
         qp = QueryParser("author", schema=self._author_schema)
         q = qp.parse(query)
         with self._author_index.searcher() as searcher:
             corrected = searcher.correct_query(q, query)
             if corrected.query != q:
                 return corrected.string
-            else:
-                return None
+            return None
 
     def search_series(
         self, query: str, is_cancelled: Callable[[], bool] = _never_cancelled
@@ -237,15 +232,14 @@ class BookIndex:
             ]
             return entries
 
-    def suggest_series(self, query: str) -> Optional[str]:
+    def suggest_series(self, query: str) -> str | None:
         qp = QueryParser("series", schema=self._series_schema)
         q = qp.parse(query)
         with self._series_index.searcher() as searcher:
             corrected = searcher.correct_query(q, query)
             if corrected.query != q:
                 return corrected.string
-            else:
-                return None
+            return None
 
     def search_books(
         self, query: str, is_cancelled: Callable[[], bool] = _never_cancelled

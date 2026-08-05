@@ -1,5 +1,3 @@
-from typing import Optional
-
 from rich.text import Text
 from textual import on
 from textual.widgets import DataTable
@@ -77,7 +75,7 @@ class BookTable(DataTable):
             language_display(book.lang),
         )
 
-    def book_id(self, row_key: RowKey) -> Optional[int]:
+    def book_id(self, row_key: RowKey) -> int | None:
         if row_key not in self.rows or row_key in self._header_rows:
             return None
         return int(self.get_cell(row_key, self._id_column))
@@ -85,7 +83,7 @@ class BookTable(DataTable):
     def _is_separator(self, row_index: int) -> bool:
         return self.ordered_rows[row_index].key in self._header_rows
 
-    def _next_book_row(self, start: int, step: int) -> Optional[int]:
+    def _next_book_row(self, start: int, step: int) -> int | None:
         row = start
         while 0 <= row < self.row_count:
             if not self._is_separator(row):

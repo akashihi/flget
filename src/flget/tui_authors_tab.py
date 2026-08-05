@@ -4,8 +4,8 @@ from textual.widget import Widget
 from textual.widgets import DataTable
 from textual.worker import get_current_worker
 
-from flget.library import TheLibrary
 from flget.inpx import AuthorEntry, BookEntry
+from flget.library import TheLibrary
 from flget.tui_book_table import BookTable
 
 

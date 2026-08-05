@@ -1,22 +1,20 @@
 import dataclasses
 import os
+import sqlite3
 import threading
 import zipfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional, Tuple
 
 import platformdirs
-import sqlite3
 
+from flget import naming
 from flget.config import Config
 from flget.filters import BookFilter, _book_year
-from flget.inpx import SeriesEntry
-from flget.inpx import AuthorEntry
-from flget.inpx import BookEntry
 from flget.index import BookIndex
+from flget.inpx import AuthorEntry, BookEntry, SeriesEntry
 from flget.mirror import Mirror
-from flget import naming
 
 # Series larger than this are too generic to be useful in a filename, so the
 # series/serno segment is skipped for them.
@@ -198,7 +196,7 @@ class TheLibrary:
         self._local = threading.local()
 
         # Cached code->title map; the table is read-only outside sync().
-        self._genre_titles_cache: Optional[dict[str, str]] = None
+        self._genre_titles_cache: dict[str, str] | None = None
 
         # Pre-create tables on the main-thread connection.
         self._file_db.execute(FILES_DDL)
@@ -285,7 +283,7 @@ class TheLibrary:
         self._file_db.commit()
         self._genre_titles_cache = None
 
-    def _refill_book(self, book: BookEntry) -> Optional[BookEntry]:
+    def _refill_book(self, book: BookEntry) -> BookEntry | None:
         """Populate file fields (archive/filename/ext/filesize) and the stored
         year onto an index-only ``BookEntry`` from files.db. Returns ``None``
         when the book has no files.db row."""
@@ -321,7 +319,7 @@ class TheLibrary:
             self._local.attached_zip = archive
         return archive
 
-    def get_cover(self, book_id: int) -> Optional[bytes]:
+    def get_cover(self, book_id: int) -> bytes | None:
         row = self._file_db.execute(COVERS_QUERY, (book_id,)).fetchone()
         if row is None:
             return None
@@ -333,7 +331,7 @@ class TheLibrary:
     def search_authors(
         self,
         query: str,
-        book_filter: Optional[BookFilter] = None,
+        book_filter: BookFilter | None = None,
         is_cancelled: Callable[[], bool] = _never_cancelled,
     ) -> list[AuthorEntry]:
         authors = self._index.search_authors(query, is_cancelled)
@@ -367,13 +365,13 @@ class TheLibrary:
                 return True
         return False
 
-    def suggest_authors(self, query: str) -> Optional[str]:
+    def suggest_authors(self, query: str) -> str | None:
         return self._index.suggest_authors(query)
 
     def search_series(
         self,
         query: str,
-        book_filter: Optional[BookFilter] = None,
+        book_filter: BookFilter | None = None,
         is_cancelled: Callable[[], bool] = _never_cancelled,
     ) -> list[SeriesEntry]:
         series = self._index.search_series(query, is_cancelled)
@@ -387,13 +385,13 @@ class TheLibrary:
                 result.append(s)
         return result
 
-    def suggest_series(self, query: str) -> Optional[str]:
+    def suggest_series(self, query: str) -> str | None:
         return self._index.suggest_series(query)
 
     def search_books(
         self,
         query: str,
-        book_filter: Optional[BookFilter] = None,
+        book_filter: BookFilter | None = None,
         is_cancelled: Callable[[], bool] = _never_cancelled,
     ) -> list[BookEntry]:
         result: list[BookEntry] = []
@@ -418,7 +416,7 @@ class TheLibrary:
             }
         return self._genre_titles_cache
 
-    def list_genres(self) -> list[Tuple[str, Optional[str]]]:
+    def list_genres(self) -> list[tuple[str, str | None]]:
         titles = self.genre_titles()
         return [(code, titles.get(code)) for code in self._index.field_values("genres")]
 
@@ -445,8 +443,8 @@ class TheLibrary:
 
         author = book.authors[0] if book.authors else None
 
-        series: Optional[str] = None
-        serno: Optional[int] = None
+        series: str | None = None
+        serno: int | None = None
         rows = self._file_db.execute(SERIES_SIZES_QUERY, (book_id,)).fetchall()
         candidates = [row for row in rows if row[2] <= MAX_SERIES_SIZE]
         if candidates:
@@ -488,7 +486,7 @@ class TheLibrary:
 
     def _count_unknown_entries(
         self, progress_update: Callable[[float], None]
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         archives = set(x[0] for x in self._file_db.execute(ARCHIVES_QUERY).fetchall())
         progress = 50.0 / float(len(archives))
         unknown_entries = 0

@@ -1,4 +1,4 @@
-from typing import Optional, cast
+from typing import cast
 
 from textual import on, work
 from textual.app import App, ComposeResult
@@ -18,14 +18,14 @@ from textual.worker import Worker, WorkerState, get_current_worker
 
 from flget.config import Config
 from flget.filters import BookFilter
+from flget.inpx import BookEntry
+from flget.library import TheLibrary
 from flget.tui_authors_tab import AuthorsWidget
+from flget.tui_book_table import BookTable
 from flget.tui_book_view import BookViewWidget
 from flget.tui_filter_screen import FilterScreen
-from flget.tui_series_tab import SeriesWidget
-from flget.tui_book_table import BookTable
-from flget.inpx import BookEntry
 from flget.tui_save_screen import SaveScreen
-from flget.library import TheLibrary
+from flget.tui_series_tab import SeriesWidget
 
 # Debounce policy for search-as-you-type
 SHORT_LEN = 3
@@ -55,10 +55,10 @@ class FlTui(App):
 
         self._book_info = BookViewWidget(self._library)
 
-        self._selected_book: Optional[BookEntry] = None
+        self._selected_book: BookEntry | None = None
         self._book_filter: BookFilter = BookFilter()
         self._current_query: str = ""
-        self._search_timer: Optional[Timer] = None
+        self._search_timer: Timer | None = None
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="search-bar"):

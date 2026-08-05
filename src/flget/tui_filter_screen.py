@@ -1,5 +1,3 @@
-from typing import Optional
-
 import humanize
 import typer
 from textual import on
@@ -13,7 +11,7 @@ from flget.filters import LANGUAGE_NAMES, BookFilter, parse_size
 from flget.library import TheLibrary
 
 
-class FilterScreen(ModalScreen[Optional[BookFilter]]):
+class FilterScreen(ModalScreen[BookFilter | None]):
     BINDINGS = [("escape", "close", "Close")]
 
     def __init__(self, parent, library: TheLibrary, current: BookFilter):

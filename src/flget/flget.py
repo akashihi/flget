@@ -1,10 +1,10 @@
 import io
-from typing import Annotated, List, Optional
+from typing import Annotated
 
+import humanize
 import platformdirs
 import pyfiglet
 import typer
-import humanize
 from rich import box
 from rich.console import Console
 from rich.markdown import Markdown
@@ -30,13 +30,13 @@ config = Config()
 library = TheLibrary(config)
 
 GenreOption = Annotated[
-    Optional[List[str]],
+    list[str] | None,
     typer.Option(
         "--genre", "-g", help="Filter by genre code (repeatable; see 'filters genres')."
     ),
 ]
 FormatOption = Annotated[
-    Optional[List[str]],
+    list[str] | None,
     typer.Option(
         "--format",
         "-f",
@@ -44,7 +44,7 @@ FormatOption = Annotated[
     ),
 ]
 LanguageOption = Annotated[
-    Optional[List[str]],
+    list[str] | None,
     typer.Option(
         "--language",
         "-l",
@@ -52,31 +52,31 @@ LanguageOption = Annotated[
     ),
 ]
 YearFromOption = Annotated[
-    Optional[int],
+    int | None,
     typer.Option("--year-from", help="Only books published this year or later."),
 ]
 YearToOption = Annotated[
-    Optional[int],
+    int | None,
     typer.Option("--year-to", help="Only books published this year or earlier."),
 ]
 MinSizeOption = Annotated[
-    Optional[str],
+    str | None,
     typer.Option("--min-size", help="Minimum file size (e.g. 500K, 2M, 1.5G)."),
 ]
 MaxSizeOption = Annotated[
-    Optional[str],
+    str | None,
     typer.Option("--max-size", help="Maximum file size (e.g. 500K, 2M, 1.5G)."),
 ]
 
 
 def _build_filter(
-    genre: Optional[List[str]],
-    format: Optional[List[str]],
-    language: Optional[List[str]],
-    year_from: Optional[int],
-    year_to: Optional[int],
-    min_size: Optional[str],
-    max_size: Optional[str],
+    genre: list[str] | None,
+    format: list[str] | None,
+    language: list[str] | None,
+    year_from: int | None,
+    year_to: int | None,
+    min_size: str | None,
+    max_size: str | None,
 ) -> BookFilter:
     return BookFilter(
         genres=frozenset(g.lower() for g in genre) if genre else frozenset(),

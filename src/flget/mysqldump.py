@@ -13,7 +13,7 @@ re-serialise data back into SQL text -- escaping and injection are non-issues.
 
 import re
 import sqlite3
-from typing import Any, List, Optional
+from typing import Any
 
 # When scanning *outside* a string we only care about the next quote (string
 # start) or the statement terminator. When *inside* a string we care about the
@@ -105,7 +105,7 @@ class _DumpLoader:
 def load_dump(conn: sqlite3.Connection, path: str) -> None:
     """Import one decompressed mysqldump ``.sql`` file into ``conn``."""
     loader = _DumpLoader(conn)
-    with open(path, "r", encoding="utf-8", errors="replace") as f:
+    with open(path, encoding="utf-8", errors="replace") as f:
         while True:
             chunk = f.read(_CHUNK)
             if not chunk:
@@ -139,7 +139,7 @@ def _find_statement_end(buf: str, pos: int) -> int:
                 i = m.end() + 1
 
 
-def _parse_columns(body: str) -> List[str]:
+def _parse_columns(body: str) -> list[str]:
     """Column names, in declaration order, from a CREATE TABLE body.
 
     mysqldump puts every column and key on its own line; column definitions
@@ -155,9 +155,9 @@ def _parse_columns(body: str) -> List[str]:
     return columns
 
 
-def _parse_values(s: str, start: int) -> List[List[Any]]:
+def _parse_values(s: str, start: int) -> list[list[Any]]:
     """Parse the ``(...),(...),...`` tuples following ``VALUES`` into rows."""
-    rows: List[List[Any]] = []
+    rows: list[list[Any]] = []
     i = start
     n = len(s)
     while i < n:
@@ -166,7 +166,7 @@ def _parse_values(s: str, start: int) -> List[List[Any]]:
         if i >= n or s[i] != "(":
             break
         i += 1
-        row: List[Any] = []
+        row: list[Any] = []
         while True:
             while i < n and s[i] in " \t\r\n":
                 i += 1
@@ -197,7 +197,7 @@ def _parse_values(s: str, start: int) -> List[List[Any]]:
 def _read_string(s: str, i: int) -> tuple[str, int]:
     """Read a single-quoted MySQL string starting at ``s[i] == "'"``."""
     i += 1  # past the opening quote
-    parts: List[str] = []
+    parts: list[str] = []
     while True:
         m = _INSIDE.search(s, i)
         assert m is not None  # statement is complete, so the string closes
@@ -209,7 +209,7 @@ def _read_string(s: str, i: int) -> tuple[str, int]:
         i = m.end() + 1
 
 
-def _parse_scalar(token: str) -> Optional[Any]:
+def _parse_scalar(token: str) -> Any | None:
     if token == "NULL":
         return None
     if token[:2] in ("0x", "0X"):

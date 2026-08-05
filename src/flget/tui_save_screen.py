@@ -3,10 +3,10 @@ from textual import on
 from textual.app import ComposeResult
 from textual.containers import Grid
 from textual.screen import ModalScreen
-from textual.widgets import Label, Button, Input
+from textual.widgets import Button, Input, Label
 
-from flget.library import TheLibrary
 from flget.inpx import BookEntry
+from flget.library import TheLibrary
 
 
 class SaveScreen(ModalScreen):

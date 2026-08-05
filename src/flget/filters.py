@@ -1,7 +1,6 @@
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 
 import typer
 
@@ -112,7 +111,7 @@ def parse_size(text: str) -> int:
     return int(value * _SIZE_UNITS[unit])
 
 
-def _book_year(book: BookEntry) -> Optional[int]:
+def _book_year(book: BookEntry) -> int | None:
     """Best-effort extraction of a publication year from ``BookEntry.date``,
     which may be a ``datetime`` (INPX), a string year (dbsync), an int (after
     files.db refill) or ``None``."""
@@ -134,10 +133,10 @@ class BookFilter:
     genres: frozenset[str] = frozenset()
     formats: frozenset[str] = frozenset()
     languages: frozenset[str] = frozenset()
-    year_from: Optional[int] = None
-    year_to: Optional[int] = None
-    min_size: Optional[int] = None
-    max_size: Optional[int] = None
+    year_from: int | None = None
+    year_to: int | None = None
+    min_size: int | None = None
+    max_size: int | None = None
 
     def is_empty(self) -> bool:
         return not (

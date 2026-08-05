@@ -10,20 +10,22 @@ INPX_FIELDS_SHORT = 15
 INPX_FIELDS_LONG = 17
 
 
-def multi_entry_clean(input: list[str]) -> list[str]:
-    if not input[-1]:
-        del input[-1]
-    return list(map(lambda s: s.strip(","), input))
+def multi_entry_clean(values: list[str]) -> list[str]:
+    if not values[-1]:
+        del values[-1]
+    return [v.strip(",") for v in values]
 
 
-def optional_int_parse(input: str) -> int:
+def optional_int_parse(text: str) -> int:
     try:
-        return int(input) if input else -1
+        return int(text) if text else -1
     except ValueError:
         return -1
 
 
-def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror:
+def parse_inpx(  # noqa: PLR0912, PLR0915 - one long linear pass over the INPX
+    lib_dir: str, progress_update: Callable[[float], None]
+) -> Mirror:
     lib_path = Path(lib_dir)
     if not lib_path.exists():
         raise FileNotFoundError
@@ -133,10 +135,7 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
     author_entries = []
     authors_index = {}
     for index, (name, books_count) in enumerate(authors_counter.items()):
-        if name in authors_series_counter:
-            series_count = authors_series_counter[name]
-        else:
-            series_count = None
+        series_count = authors_series_counter.get(name)
         author_entries.append(AuthorEntry(index, name, books_count, series_count))
         authors_index[name] = index
 

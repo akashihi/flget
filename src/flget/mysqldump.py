@@ -62,14 +62,14 @@ class _DumpLoader:
 
     def feed(self, chunk: str) -> None:
         self._buf += chunk
-        self._drain(final=False)
+        self._drain()
 
     def close(self) -> None:
         # Flush whatever is left; a well-formed dump ends on a terminator so
         # nothing meaningful should remain, but be defensive.
-        self._drain(final=True)
+        self._drain()
 
-    def _drain(self, final: bool) -> None:
+    def _drain(self) -> None:
         buf = self._buf
         pos = 0
         while True:

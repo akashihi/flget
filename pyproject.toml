@@ -14,6 +14,7 @@ dependencies = [
     "prompt_toolkit>=3.0.48,<4",
     "requests>=2.32.3,<3",
     "whoosh>=2.7.4,<3",
+    "rich>=13.4,<16",
     "textual>=0.85.2,<0.86",
     "textual-image[textual]>=0.13.2,<0.14",
     "humanize>=4.11.0,<5",
@@ -43,6 +44,9 @@ dev = [
 [build-system]
 requires = ["uv_build>=0.11,<0.12"]
 build-backend = "uv_build"
+
+[tool.deptry.per_rule_ignores]
+DEP002 = ["click", "setuptools"]
 
 [tool.codespell]
 ignore-words-list = "gost"

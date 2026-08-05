@@ -131,7 +131,7 @@ class BookFilter:
             or self.max_size is not None
         )
 
-    def matches(self, book: BookEntry) -> bool:
+    def matches(self, book: BookEntry) -> bool:  # noqa: PLR0911 - guard chain
         if self.genres:
             book_genres = {g.lower() for g in book.genres}
             if not book_genres & self.genres:
@@ -156,7 +156,7 @@ class BookFilter:
             book.filesize is None or book.filesize < self.min_size
         ):
             return False
-        if self.max_size is not None and (
+        if self.max_size is not None and (  # noqa: SIM103 - guard-chain style
             book.filesize is None or book.filesize > self.max_size
         ):
             return False

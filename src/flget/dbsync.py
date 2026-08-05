@@ -295,7 +295,9 @@ def _build_archives_map(lib_dir: str) -> dict[str, str]:
     return archives_map
 
 
-def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror:
+def build_mirror(  # noqa: PLR0912, PLR0915 - one long linear pass over the dump
+    lib_dir: str, progress_update: Callable[[float], None]
+) -> Mirror:
     archives_map = _build_archives_map(lib_dir)
     flget_cache_dir = platformdirs.user_cache_dir("flget")
     con = sqlite3.connect(_db_path(flget_cache_dir))
@@ -329,24 +331,25 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
 
         # usr archives have an actual name sometimes
         original_name = False
+        member = filename
         if ext.lower() == "fb2":
             full_filename = f"{libid}.fb2"
             if full_filename not in archives_map:
                 continue
             archive = archives_map[full_filename]
-            filename = libid
+            member = str(libid)
         elif filename:
             if filename not in archives_map:
                 continue
             archive = archives_map[filename]
             original_name = True
         else:
-            filename = f"{libid}.{ext}"
-            if filename not in archives_map:
-                filename = f"{filename}.zip"
-                if filename not in archives_map:
+            member = f"{libid}.{ext}"
+            if member not in archives_map:
+                member = f"{member}.zip"
+                if member not in archives_map:
                     continue
-            archive = archives_map[filename]
+            archive = archives_map[member]
 
         series_list = series.split(",") if series else []
         serno_list = [int(x) for x in serno.split(",")] if series else []
@@ -358,7 +361,7 @@ def build_mirror(lib_dir: str, progress_update: Callable[[float], None]) -> Mirr
             title,
             series_list,
             serno_list,
-            filename,
+            member,
             filesize,
             libid,
             False,

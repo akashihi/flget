@@ -196,16 +196,15 @@ class BookIndex:
                 searcher.search_with_collector(q, cancellable)
             except SearchCancelled:
                 return []
-            entries = [
+            return [
                 AuthorEntry(
                     e["author_id"],
                     e["author"],
                     e["no_books"],
-                    e["no_series"] if "no_series" in e else None,
+                    e.get("no_series", None),
                 )
                 for e in cancellable.results()
             ]
-            return entries
 
     def suggest_authors(self, query: str) -> str | None:
         qp = QueryParser("author", schema=self._author_schema)
@@ -229,11 +228,10 @@ class BookIndex:
                 searcher.search_with_collector(q, cancellable)
             except SearchCancelled:
                 return []
-            entries = [
+            return [
                 SeriesEntry(e["series_id"], e["series"], e["no_books"], e["no_authors"])
                 for e in cancellable.results()
             ]
-            return entries
 
     def suggest_series(self, query: str) -> str | None:
         qp = QueryParser("series", schema=self._series_schema)
@@ -255,8 +253,7 @@ class BookIndex:
                 searcher.search_with_collector(q, cancellable)
             except SearchCancelled:
                 return []
-            entries = [_book_result_to_entry(e) for e in cancellable.results()]
-            return entries
+            return [_book_result_to_entry(e) for e in cancellable.results()]
 
     def field_values(self, field: str) -> list[str]:
         with self._book_index.searcher() as searcher:

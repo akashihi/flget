@@ -18,8 +18,7 @@ def validate_mirror(library: TheLibrary) -> MirrorValidationResult:
         def task_updater(advance: float) -> None:
             progress.update(mirror_task, advance=advance)
 
-        validation_results = library.validate(task_updater)
-    return validation_results
+        return library.validate(task_updater)
 
 
 def report_validation_results(

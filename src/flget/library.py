@@ -470,7 +470,7 @@ class TheLibrary:
             fh.write(data)
 
     def _count_unknown_archives(self, progress_update: Callable[[float], None]) -> int:
-        archives = set(x[0] for x in self._file_db.execute(ARCHIVES_QUERY).fetchall())
+        archives = {x[0] for x in self._file_db.execute(ARCHIVES_QUERY).fetchall()}
         unknown_archives = 0
         files_in_lib = list(Path(self._config.libdir()).iterdir())
         progress = 50.0 / float(len(files_in_lib))
@@ -488,7 +488,7 @@ class TheLibrary:
     def _count_unknown_entries(
         self, progress_update: Callable[[float], None]
     ) -> tuple[int, int]:
-        archives = set(x[0] for x in self._file_db.execute(ARCHIVES_QUERY).fetchall())
+        archives = {x[0] for x in self._file_db.execute(ARCHIVES_QUERY).fetchall()}
         progress = 50.0 / float(len(archives))
         unknown_entries = 0
         missing_archives = 0

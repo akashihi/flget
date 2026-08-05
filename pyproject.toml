@@ -33,9 +33,10 @@ fltui = "flget.fltui:main"
 # Versions kept in lockstep with .pre-commit-config.yaml so `uv run` and the
 # pre-commit hooks lint/format identically.
 dev = [
-    "ruff==0.7.3",
-    "mypy",
-    "codespell==2.2.4",
+    "ruff==0.16.1",
+    "mypy==2.3.0",
+    "codespell==2.4.3",
+    "deptry>=0.25,<0.26",
     "pre-commit>=4",
     "textual-dev>=1.6.1,<2",
     "types-requests>=2.32.0.20241016,<3",

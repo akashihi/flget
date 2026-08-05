@@ -273,19 +273,19 @@ def show_book(book_id: int) -> None:
         console.print(CoverRenderable(io.BytesIO(cover), width="auto", height=20))
 
     output = Text()
-    output.append(f"Authors: {", ".join(book.authors)}\n", style="bold sea_green1")
+    output.append(f"Authors: {', '.join(book.authors)}\n", style="bold sea_green1")
     if book.series:
         series_list = [f"{s[0]} ({s[1]})" for s in zip(book.series, book.serno)]
         output.append(f"Series: {','.join(series_list)}\n", style="bold magenta")
     output.append(
-        f"Genres: {", ".join(filters.genre_display_names(book.genres, library.genre_titles()))}\n",
+        f"Genres: {', '.join(filters.genre_display_names(book.genres, library.genre_titles()))}\n",
         style="deep_sky_blue4",
     )
     output.append(
         f"Rating: {str(book.rating) if book.rating >= 0 else 'Not yet set'}\n",
         style="indian_red1",
     )
-    output.append(f"Keywords: {", ".join(book.keywords)}\n", style="deep_sky_blue4")
+    output.append(f"Keywords: {', '.join(book.keywords)}\n", style="deep_sky_blue4")
     year = filters._book_year(book)
     if year is not None:
         output.append(f"Year: {year}\n", style="indian_red1")

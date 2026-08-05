@@ -24,8 +24,8 @@ def optional_int_parse(input: str) -> int:
 def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror:
     if not os.path.exists(lib_dir):
         raise FileNotFoundError
-    lib_dir = lib_dir
 
+    inpx_file = None
     for f in os.listdir(lib_dir):
         if f.lower().endswith(".inpx"):
             inpx_file = os.path.join(lib_dir, f)
@@ -84,7 +84,7 @@ def parse_inpx(lib_dir: str, progress_update: Callable[[float], None]) -> Mirror
                         libid = int(book_entry[7].decode("UTF-8"))
                         deleted = book_entry[8].decode("UTF-8") == "1"
                         ext = book_entry[9].decode("UTF-8")
-                        date = datetime.strptime(
+                        date = datetime.strptime(  # noqa: DTZ007
                             book_entry[10].decode("UTF-8"), "%Y-%m-%d"
                         )
                         if len(book_entry) == 15:

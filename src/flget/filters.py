@@ -104,7 +104,7 @@ def parse_size(text: str) -> int:
     try:
         value = float(number)
     except ValueError:
-        raise typer.BadParameter(f"Invalid size: '{text}'")
+        raise typer.BadParameter(f"Invalid size: '{text}'") from None
     if value < 0:
         raise typer.BadParameter(f"Invalid size: '{text}'")
 

@@ -148,10 +148,6 @@ def _ceil(value: Any) -> Any:
 
 class _OrderedConcat:
     """Aggregate replacing MySQL ``GROUP_CONCAT(DISTINCT v ORDER BY k)``.
-
-    SQLite's built-in ``group_concat`` cannot order its output, so we collect
-    ``(sortkey, value)`` pairs, sort by the key, drop duplicate values and
-    comma-join. Returns NULL when empty so the surrounding COALESCE applies.
     """
 
     def __init__(self) -> None:
@@ -165,11 +161,10 @@ class _OrderedConcat:
     def finalize(self) -> str | None:
         seen = set()
         out = []
-        for _, value in sorted(self._items, key=lambda x: (x[0] is None, x[0])):
-            text = str(value)
-            if text not in seen:
-                seen.add(text)
-                out.append(text)
+        for sortkey, value in sorted(self._items, key=lambda x: (x[0] is None, x[0])):
+            if sortkey not in seen:
+                seen.add(sortkey)
+                out.append(str(value))
         return ",".join(out) if out else None
 
 
@@ -215,7 +210,7 @@ def _download_file(
             if entry.get("last_modified"):
                 headers["If-Modified-Since"] = entry["last_modified"]
 
-    with requests.get(url, stream=True, headers=headers) as r:
+    with requests.get(url, stream=True, headers=headers, timeout=(10, 60)) as r:
         r.raise_for_status()
         if r.status_code == 304:
             return local_filename

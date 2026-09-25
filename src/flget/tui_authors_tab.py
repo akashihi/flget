@@ -3,7 +3,7 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal
 from textual.widget import Widget
 from textual.widgets import DataTable, Label, Switch
-from textual.worker import get_current_worker
+from textual.worker import Worker, WorkerState, get_current_worker
 
 from flget.library import TheLibrary
 from flget.mirror import AuthorEntry, BookEntry
@@ -49,12 +49,35 @@ class AuthorsWidget(Widget):
     def on_author_select(self, event: DataTable.RowHighlighted) -> None:
         if event.row_key.value:
             self._author_id = int(event.row_key.value)
-            self._load_author_books(self._author_id, self._author_only.value)
+            self._start_author_load(self._author_id, self._author_only.value)
 
     @on(Switch.Changed, "#author-only-switch")
     def on_author_only_changed(self, event: Switch.Changed) -> None:
         if self._author_id is not None:
-            self._load_author_books(self._author_id, event.value)
+            self._start_author_load(self._author_id, event.value)
+
+    def _start_author_load(self, author_id: int, author_only: bool) -> None:
+        self._books_table.loading = True
+        self._load_author_books(author_id, author_only)
+
+    def _author_load_running(self) -> bool:
+        return any(
+            worker.group == "author-detail"
+            and worker.state in (WorkerState.PENDING, WorkerState.RUNNING)
+            for worker in self.workers
+        )
+
+    @on(Worker.StateChanged)
+    def on_author_load_state(self, event: Worker.StateChanged) -> None:
+        if event.worker.group != "author-detail":
+            return
+        # A superseding load keeps the overlay up until it finishes too.
+        if (
+            event.state
+            in (WorkerState.SUCCESS, WorkerState.CANCELLED, WorkerState.ERROR)
+            and not self._author_load_running()
+        ):
+            self._books_table.loading = False
 
     @work(thread=True, exclusive=True, group="author-detail")
     def _load_author_books(self, author_id: int, author_only: bool) -> None:

@@ -1,7 +1,8 @@
 from textual import on, work
 from textual.app import ComposeResult
+from textual.containers import Horizontal
 from textual.widget import Widget
-from textual.widgets import DataTable
+from textual.widgets import DataTable, Label, Switch
 from textual.worker import get_current_worker
 
 from flget.library import TheLibrary
@@ -18,16 +19,22 @@ class AuthorsWidget(Widget):
         self._authors_table: DataTable[str] = DataTable(
             cursor_type="row", id="authors-table"
         )
+        self._author_only = Switch(value=False, id="author-only-switch")
         self._books_table = BookTable(widget_id="authors-books-table", library=library)
+        self._author_id: int | None = None
 
     def compose(self) -> ComposeResult:
         yield self._authors_table
+        with Horizontal(id="authors-series-mode"):
+            yield self._author_only
+            yield Label("This author only")
         yield self._books_table
 
     def on_mount(self) -> None:
         self._authors_table.add_columns("ID", "Name", "Books", "Series")
 
     def populate(self, authors: list[AuthorEntry]) -> None:
+        self._author_id = None
         self._authors_table.clear()
         for entry in authors:
             self._authors_table.add_row(
@@ -41,10 +48,16 @@ class AuthorsWidget(Widget):
     @on(DataTable.RowHighlighted, "#authors-table")
     def on_author_select(self, event: DataTable.RowHighlighted) -> None:
         if event.row_key.value:
-            self._load_author_books(int(event.row_key.value))
+            self._author_id = int(event.row_key.value)
+            self._load_author_books(self._author_id, self._author_only.value)
+
+    @on(Switch.Changed, "#author-only-switch")
+    def on_author_only_changed(self, event: Switch.Changed) -> None:
+        if self._author_id is not None:
+            self._load_author_books(self._author_id, event.value)
 
     @work(thread=True, exclusive=True, group="author-detail")
-    def _load_author_books(self, author_id: int) -> None:
+    def _load_author_books(self, author_id: int, author_only: bool) -> None:
         worker = get_current_worker()
         is_cancelled = worker.cancelled_event.is_set
         named_series = sorted(
@@ -59,7 +72,9 @@ class AuthorsWidget(Widget):
         for name, series_id in named_series:
             if is_cancelled():
                 return
-            series_books = self._library.get_series(series_id, is_cancelled)
+            series_books = self._library.get_series(
+                series_id, author_id if author_only else None, is_cancelled
+            )
             if series_books:
                 groups.append((name, series_books))
                 seen.update(book.lib_id for book in series_books)

@@ -47,7 +47,7 @@ class SeriesWidget(Widget):
     def _load_series_books(self, series_id: int) -> None:
         worker = get_current_worker()
         is_cancelled = worker.cancelled_event.is_set
-        books = self._library.get_series(series_id, is_cancelled)
+        books = self._library.get_series(series_id, is_cancelled=is_cancelled)
         if worker.is_cancelled:
             return
         self.app.call_from_thread(self._books_table.populate, books)

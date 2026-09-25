@@ -317,13 +317,24 @@ def show_series(series_id: int) -> None:
 
 
 @show_app.command(name="author")
-def show_author(author_id: int) -> None:
+def show_author(
+    author_id: int,
+    author_only: Annotated[
+        bool,
+        typer.Option(
+            "--author-only",
+            help="Show only this author's books within each series.",
+        ),
+    ] = False,
+) -> None:
     """
     Show author's series and books
 
     """
     for s in library.get_author_series(author_id):
-        show_series(s)
+        books = library.get_series(s, author_id=author_id if author_only else None)
+        if books:
+            _book_list_render(library.get_series_name(s), books)
 
     _book_list_render("Non-series Books", library.get_author_books(author_id))
 

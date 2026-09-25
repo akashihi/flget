@@ -17,6 +17,14 @@ TabbedContent ContentSwitcher, DataTable {
     height: 1fr
 }
 
+#authors-series-mode {
+    height: auto;
+}
+
+#authors-series-mode Label {
+    padding: 1 1;
+}
+
 BookViewWidget {
     height: 1fr;
 }

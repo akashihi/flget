@@ -68,6 +68,10 @@ PRIMARY KEY(series_id, lib_id)
 )
 """
 
+SERIES_INDEX = """
+CREATE INDEX IF NOT EXISTS series_lib_id ON series(lib_id)
+"""
+
 AUTHORS_SERIES_DDL = """
 CREATE TABLE IF NOT EXISTS authors_series (
 author_id INTEGER NOT NULL,
@@ -138,6 +142,12 @@ SERIES_QUERY = """
 SELECT lib_id FROM series WHERE series_id=? ORDER BY serno ASC
 """
 
+# One series restricted to the books a given author (co-)wrote.
+AUTHOR_SERIES_QUERY = """
+SELECT s.lib_id FROM series s JOIN authors_books ab ON ab.lib_id = s.lib_id
+WHERE s.series_id=? AND ab.author_id=? ORDER BY s.serno ASC
+"""
+
 SERIES_NAME_QUERY = """
 SELECT DISTINCT name FROM series WHERE series_id=? LIMIT 1
 """
@@ -157,7 +167,7 @@ INSERT INTO authors_series (author_id, series_id) VALUES (?, ?) ON CONFLICT (aut
 """
 
 AUTHORS_BOOKS_UPDATE = """
-INSERT INTO authors_books (author_id, lib_id) VALUES (?, ?)
+INSERT INTO authors_books (author_id, lib_id) VALUES (?, ?) ON CONFLICT (author_id, lib_id) DO NOTHING
 """
 
 AUTHORS_SERIES_QUERY = """
@@ -165,7 +175,8 @@ SELECT DISTINCT series_id FROM authors_series WHERE author_id=?
 """
 
 AUTHORS_BOOKS_QUERY = """
-SELECT DISTINCT lib_id FROM authors_books WHERE author_id=?
+SELECT DISTINCT ab.lib_id FROM authors_books ab
+WHERE ab.author_id=? AND NOT EXISTS (SELECT 1 FROM series s WHERE s.lib_id = ab.lib_id)
 """
 
 
@@ -200,6 +211,7 @@ class TheLibrary:
         self._file_db.execute(FILES_DDL)
         self._file_db.execute(FILES_INDEX)
         self._file_db.execute(SERIES_DDL)
+        self._file_db.execute(SERIES_INDEX)
         self._file_db.execute(AUTHORS_SERIES_DDL)
         self._file_db.execute(AUTHORS_BOOKS_DDL)
         self._file_db.execute(GENRE_TITLES_DDL)
@@ -258,9 +270,8 @@ class TheLibrary:
                 cur.execute(BOOK_DIGEST_UPDATE, (lib_id, book.annotation, book.reviews))
             if book.cover:
                 cur.execute(COVERS_UPDATE, (lib_id, book.cover))
-            if not book.series:
-                for author_id in book.authors:
-                    cur.execute(AUTHORS_BOOKS_UPDATE, (author_id, lib_id))
+            for author_id in book.authors:
+                cur.execute(AUTHORS_BOOKS_UPDATE, (author_id, lib_id))
 
         for series_book in mirror.series_books():
             cur.execute(
@@ -356,7 +367,8 @@ class TheLibrary:
             if is_cancelled():
                 return False
             if any(
-                book_filter.matches(b) for b in self.get_series(series_id, is_cancelled)
+                book_filter.matches(b)
+                for b in self.get_series(series_id, is_cancelled=is_cancelled)
             ):
                 return True
         return False
@@ -377,7 +389,10 @@ class TheLibrary:
         for s in series:
             if is_cancelled():
                 return result
-            if any(book_filter.matches(b) for b in self.get_series(s.id, is_cancelled)):
+            if any(
+                book_filter.matches(b)
+                for b in self.get_series(s.id, is_cancelled=is_cancelled)
+            ):
                 result.append(s)
         return result
 
@@ -541,9 +556,19 @@ class TheLibrary:
         return str(row[0])
 
     def get_series(
-        self, series_id: int, is_cancelled: Callable[[], bool] = _never_cancelled
+        self,
+        series_id: int,
+        author_id: int | None = None,
+        is_cancelled: Callable[[], bool] = _never_cancelled,
     ) -> list[BookEntry]:
-        book_ids = self._file_db.execute(SERIES_QUERY, (series_id,)).fetchall()
+        """Books of a series in serno order; with ``author_id``, only the books
+        that author (co-)wrote."""
+        if author_id is None:
+            book_ids = self._file_db.execute(SERIES_QUERY, (series_id,)).fetchall()
+        else:
+            book_ids = self._file_db.execute(
+                AUTHOR_SERIES_QUERY, (series_id, author_id)
+            ).fetchall()
         return self.get_books([book_id[0] for book_id in book_ids], is_cancelled)
 
     def get_author_series(self, author_id: int) -> list[int]:

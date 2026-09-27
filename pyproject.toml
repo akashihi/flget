@@ -3,9 +3,11 @@ name = "flget"
 version = "0.1.0"
 description = "Local Flibusta mirror search tool"
 readme = "README.md"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = [
-    "pyfiglet>=0.8.post1,<0.9",
+    "pyfiglet>=1.0.4,<2",
     "platformdirs>=4.3.6,<5",
     "typer==0.12.5",
     # typer 0.12.5 predates click 8.2's CLI-parsing changes; keep click compatible.
@@ -13,16 +15,13 @@ dependencies = [
     "tomlkit>=0.13.2,<0.14",
     "prompt_toolkit>=3.0.48,<4",
     "requests>=2.32.3,<3",
-    "whoosh>=2.7.4,<3",
+    "whoosh-reloaded>=2.7.5,<2.8",
     "rich>=13.4,<16",
     "textual>=0.85.2,<0.86",
     "textual-image[textual]>=0.13.2,<0.14",
     "humanize>=4.11.0,<5",
     "cyrtranslit>=1.1,<2",
     "Unidecode>=1.3,<2",
-    # pyfiglet 0.8.post1 imports pkg_resources at runtime but does not declare it;
-    # provide it via setuptools <81 (81 dropped the bundled pkg_resources module).
-    "setuptools>=70,<81",
     "markdownify>=1.2.2,<2",
 ]
 
@@ -46,7 +45,7 @@ requires = ["uv_build>=0.11,<0.12"]
 build-backend = "uv_build"
 
 [tool.deptry.per_rule_ignores]
-DEP002 = ["click", "setuptools"]
+DEP002 = ["click"]
 
 [tool.codespell]
 ignore-words-list = "gost"

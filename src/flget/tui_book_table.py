@@ -1,9 +1,10 @@
 from typing import Any
 
 from rich.text import Text
-from textual import on
+from textual import events, on
+from textual.coordinate import Coordinate
 from textual.widgets import DataTable
-from textual.widgets._data_table import ColumnKey, RowKey
+from textual.widgets.data_table import ColumnKey, RowKey
 
 from flget.filters import genre_display_names, language_display
 from flget.library import TheLibrary
@@ -41,6 +42,9 @@ class BookTable(DataTable[Any]):
         first = self._next_book_row(0, 1)
         if first is not None:
             self.move_cursor(row=first)
+            # Textual scrolls the new cursor row into view after the next
+            # refresh, one row too far, hiding the first group header.
+            self.call_after_refresh(self.scroll_home, animate=False, force=True)
 
     def _render_groups(self) -> None:
         self.clear()
@@ -69,12 +73,12 @@ class BookTable(DataTable[Any]):
     def _add_book_row(self, book: BookEntry, titles: dict[str, str]) -> None:
         self.add_row(
             book.lib_id,
-            book.title,
-            ",".join(book.author_names),
-            ",".join(genre_display_names(book.genres, titles)),
+            Text(book.title),
+            Text(",".join(book.author_names)),
+            Text(",".join(genre_display_names(book.genres, titles))),
             book.rating if book.rating > 0 else "",
-            ",".join(book.keywords),
-            language_display(book.lang),
+            Text(",".join(book.keywords)),
+            Text(language_display(book.lang)),
         )
 
     def book_id(self, row_key: RowKey) -> int | None:
@@ -92,6 +96,17 @@ class BookTable(DataTable[Any]):
                 return row
             row += step
         return None
+
+    @on(events.Click)
+    def _on_header_click(self, event: events.Click) -> None:
+        # Textual selects a row only when the click lands on the cursor row, so
+        # move the cursor onto a clicked group header first: DataTable's own
+        # click handler (dispatched after this one) then selects it, toggling
+        # the group with a single click.
+        meta = event.style.meta
+        row = meta.get("row", -1)
+        if 0 <= row < self.row_count and self._is_separator(row):
+            self.cursor_coordinate = Coordinate(row, meta.get("column", 0))
 
     @on(DataTable.RowSelected)
     def _on_row_selected(self, event: DataTable.RowSelected) -> None:

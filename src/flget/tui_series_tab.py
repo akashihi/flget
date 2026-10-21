@@ -1,3 +1,4 @@
+from rich.text import Text
 from textual import on, work
 from textual.app import ComposeResult
 from textual.widget import Widget
@@ -15,7 +16,7 @@ class SeriesWidget(Widget):
 
         self._library = library
 
-        self._series_table: DataTable[str] = DataTable(
+        self._series_table: DataTable[str | Text] = DataTable(
             cursor_type="row", id="series-table"
         )
         self._books_table = BookTable(widget_id="series-books-table", library=library)
@@ -32,7 +33,7 @@ class SeriesWidget(Widget):
         for entry in series:
             self._series_table.add_row(
                 str(entry.id),
-                entry.name,
+                Text(entry.name),
                 str(entry.books),
                 str(entry.authors),
                 key=str(entry.id),

@@ -29,12 +29,12 @@ class BookViewWidget(Widget):
         self._cover_image.display = False
         self._current_lib_id: int | None = None
 
-        self._title = Static("")
-        self._author = Static("")
-        self._series = Static("")
-        self._genre = Static("")
-        self._keywords = Static("")
-        self._file_data = Static("")
+        self._title = Static("", id="book-title")
+        self._author = Static("", id="book-author")
+        self._series = Static("", id="book-series")
+        self._genre = Static("", id="book-genre")
+        self._keywords = Static("", id="book-keywords")
+        self._file_data = Static("", id="book-file")
 
         self._annotation = Markdown()
         self._reviews = Markdown()
@@ -63,7 +63,7 @@ class BookViewWidget(Widget):
         self._cover_image.display = False
         self._load_cover(book.lib_id)
 
-        title_text = Text(justify="center")
+        title_text = Text()
         title_text.append(book.title, style="bold")
         year = book.year
         if year is not None:
@@ -72,13 +72,9 @@ class BookViewWidget(Widget):
             title_text.append(" " + Emoji.replace(":star:") * book.rating)
         self._title.update(title_text)
 
-        self._author.update(
-            Text(
-                ",".join(book.author_names),
-                justify="center",
-                style="bold sea_green1",
-            )
-        )
+        self._author.update(Text(",".join(book.author_names)))
+
+        self._series.display = bool(book.series)
         if book.series:
             self._series.update(
                 Text(
@@ -88,21 +84,19 @@ class BookViewWidget(Widget):
                             f"{s[0]} ({s[1]})"
                             for s in zip(book.series, book.serno, strict=False)
                         ]
-                    ),
-                    justify="left",
-                    style="bold magenta",
+                    )
                 )
             )
-        else:
-            self._series.update("")
 
         genres = genre_display_names(book.genres, self._library.genre_titles())
-        self._genre.update(Text(",".join(genres), style="deep_sky_blue4"))
-        self._keywords.update(Text(",".join(book.keywords), style="deep_sky_blue4"))
+        self._genre.display = bool(genres)
+        self._genre.update(Text(",".join(genres)))
+        keywords = ",".join(book.keywords)
+        self._keywords.display = bool(keywords)
+        self._keywords.update(Text(keywords))
 
         file_data = Text(
-            f"{self._library._archive_member_name(book.filename, book.ext)} ({humanize.naturalsize(book.filesize or 0, gnu=True)}) Language: {language_display(book.lang)}",
-            style="magenta",
+            f"{self._library._archive_member_name(book.filename, book.ext)} ({humanize.naturalsize(book.filesize or 0, gnu=True)}) Language: {language_display(book.lang)}"
         )
         self._file_data.update(file_data)
 

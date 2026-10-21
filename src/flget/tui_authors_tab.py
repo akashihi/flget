@@ -1,3 +1,4 @@
+from rich.text import Text
 from textual import on, work
 from textual.app import ComposeResult
 from textual.containers import Horizontal
@@ -16,7 +17,7 @@ class AuthorsWidget(Widget):
 
         self._library = library
 
-        self._authors_table: DataTable[str] = DataTable(
+        self._authors_table: DataTable[str | Text] = DataTable(
             cursor_type="row", id="authors-table"
         )
         self._author_only = Switch(value=False, id="author-only-switch")
@@ -39,7 +40,7 @@ class AuthorsWidget(Widget):
         for entry in authors:
             self._authors_table.add_row(
                 str(entry.id),
-                entry.name,
+                Text(entry.name),
                 str(entry.books),
                 str(entry.series),
                 key=str(entry.id),

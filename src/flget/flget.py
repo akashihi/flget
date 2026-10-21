@@ -8,6 +8,7 @@ import typer
 from rich import box
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
@@ -101,7 +102,7 @@ def get(
 
     """
     library.save(book_id, target_path)
-    console.print(library.build_filename(book_id))
+    console.print(library.build_filename(book_id), markup=False)
 
 
 @search_app.command(name="author")
@@ -133,14 +134,14 @@ def author_search(
 
         for result in results:
             table.add_row(
-                str(result.id), result.name, str(result.books), str(result.series)
+                str(result.id), Text(result.name), str(result.books), str(result.series)
             )
 
         console.print(table)
     else:
         suggestion = library.suggest_authors(query)
         if suggestion:
-            console.print(f"Did you meant '{suggestion}'?")
+            console.print(f"Did you meant '{suggestion}'?", markup=False)
         else:
             console.print("Nothing found")
 
@@ -174,20 +175,23 @@ def series_search(
 
         for result in results:
             table.add_row(
-                str(result.id), result.name, str(result.books), str(result.authors)
+                str(result.id),
+                Text(result.name),
+                str(result.books),
+                str(result.authors),
             )
 
         console.print(table)
     else:
         suggestion = library.suggest_series(query)
         if suggestion:
-            console.print(f"Did you meant '{suggestion}'?")
+            console.print(f"Did you meant '{suggestion}'?", markup=False)
         else:
             console.print("Nothing found")
 
 
 def _book_list_render(title: str, books: list[BookEntry]) -> None:
-    table = Table(title=title)
+    table = Table(title=Text(title))
     table.add_column("ID", justify="right", style="cyan", no_wrap=True)
     table.add_column("Title", style="magenta")
     table.add_column("Authors", style="sea_green1")
@@ -200,12 +204,12 @@ def _book_list_render(title: str, books: list[BookEntry]) -> None:
     for book in books:
         table.add_row(
             str(book.lib_id),
-            book.title,
-            ", ".join(book.author_names),
-            ", ".join(filters.genre_display_names(book.genres, genre_titles)),
+            Text(book.title),
+            Text(", ".join(book.author_names)),
+            Text(", ".join(filters.genre_display_names(book.genres, genre_titles))),
             str(book.rating) if book.rating >= 0 else "",
-            ", ".join(book.keywords),
-            filters.language_display(book.lang),
+            Text(", ".join(book.keywords)),
+            Text(filters.language_display(book.lang)),
         )
 
     console.print(table)
@@ -299,7 +303,7 @@ def show_book(book_id: int) -> None:
         f"{library._archive_member_name(book.filename, book.ext)} in {config.libdir()}{book.archive}.zip ({humanize.naturalsize(book.filesize or 0, gnu=True)} bytes)\n",
         style="magenta",
     )
-    console.print(Panel(output, title=book.title, subtitle=str(book.lib_id)))
+    console.print(Panel(output, title=Text(book.title), subtitle=str(book.lib_id)))
 
     if book.annotation:
         console.print(Panel(Markdown(book.annotation), title="Annotation"))
@@ -369,7 +373,7 @@ def filters_genres() -> None:
     table.add_column("Code", style="cyan", no_wrap=True)
     table.add_column("Title", style="magenta")
     for code, title in library.list_genres():
-        table.add_row(code, title or "")
+        table.add_row(code, Text(title or ""))
     console.print(table)
 
 
@@ -382,7 +386,7 @@ def filters_formats() -> None:
     table = Table(title="Formats", box=box.SIMPLE_HEAVY)
     table.add_column("Format", style="cyan", no_wrap=True)
     for ext in library.list_formats():
-        table.add_row(ext)
+        table.add_row(Text(ext))
     console.print(table)
 
 
@@ -408,7 +412,7 @@ def set_library_path(path: str) -> None:
     config.set_libdir(path)
 
     console.print(
-        f"[royal_blue1]Library location set to[/royal_blue1]: {config.libdir()}"
+        f"[royal_blue1]Library location set to[/royal_blue1]: {escape(str(config.libdir()))}"
     )
 
 
@@ -418,7 +422,9 @@ def main() -> None:
     console.print(f, style="chartreuse4")
 
     # Library directory:
-    console.print(f"[royal_blue1]Library location[/royal_blue1]: {config.libdir()}")
+    console.print(
+        f"[royal_blue1]Library location[/royal_blue1]: {escape(str(config.libdir()))}"
+    )
 
     # CLI setup
     app.add_typer(search_app, name="search", help="Search books/authors/series")

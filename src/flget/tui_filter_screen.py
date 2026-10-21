@@ -6,6 +6,7 @@ from textual import on
 from textual.app import ComposeResult
 from textual.binding import BindingType
 from textual.containers import Grid, Horizontal, Vertical
+from textual.content import Content
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, SelectionList
 from textual.widgets.selection_list import Selection
@@ -24,7 +25,9 @@ class FilterScreen(ModalScreen[BookFilter | None]):
 
         self._genres = SelectionList[str](
             *[
-                Selection(title or code, code.lower(), code.lower() in current.genres)
+                Selection(
+                    Content(title or code), code.lower(), code.lower() in current.genres
+                )
                 for code, title in sorted(
                     library.list_genres(), key=lambda g: (g[1] or g[0]).lower()
                 )
@@ -33,7 +36,7 @@ class FilterScreen(ModalScreen[BookFilter | None]):
         )
         self._formats = SelectionList[str](
             *[
-                Selection(ext, ext.lower(), ext.lower() in current.formats)
+                Selection(Content(ext), ext.lower(), ext.lower() in current.formats)
                 for ext in library.list_formats()
             ],
             id="filter-formats",
@@ -41,7 +44,7 @@ class FilterScreen(ModalScreen[BookFilter | None]):
         self._languages = SelectionList[str](
             *[
                 Selection(
-                    LANGUAGE_NAMES.get(code.lower(), code),
+                    Content(LANGUAGE_NAMES.get(code.lower(), code)),
                     code.lower(),
                     code.lower() in current.languages,
                 )
@@ -122,7 +125,7 @@ class FilterScreen(ModalScreen[BookFilter | None]):
                 else None
             )
         except (typer.BadParameter, ValueError) as exc:
-            self.notify(f"Invalid filter value: {exc}", severity="error")
+            self.notify(f"Invalid filter value: {exc}", severity="error", markup=False)
             return
 
         book_filter = BookFilter(

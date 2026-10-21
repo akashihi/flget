@@ -27,6 +27,7 @@ class SaveScreen(ModalScreen[None]):
         yield Grid(
             Label(
                 f"Where to save {self._library.build_filename(self._book.lib_id)}?",
+                markup=False,
                 id="save-question",
             ),
             self._filename_input,

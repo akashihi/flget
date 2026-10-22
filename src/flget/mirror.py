@@ -24,8 +24,7 @@ class BookEntry:
     author_names: list[str]
     genres: list[str]
     title: str
-    series: list[str]
-    serno: list[int]
+    series: list[tuple[str, int]]  # Series are filled by fill_book_digest
     filename: str | None
     filesize: int | None
     lib_id: int

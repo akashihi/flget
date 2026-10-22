@@ -279,11 +279,8 @@ def show_book(book_id: int) -> None:
     output = Text()
     output.append(f"Authors: {', '.join(book.author_names)}\n", style="bold sea_green1")
     if book.series:
-        # TODO Some book's series can not be parsed properly and it breaks parallelism of arrays :(
-        series_list = [
-            f"{s[0]} ({s[1]})" for s in zip(book.series, book.serno, strict=False)
-        ]
-        output.append(f"Series: {','.join(series_list)}\n", style="bold magenta")
+        series_list = [f"{name} ({serno})" for name, serno in book.series]
+        output.append(f"Series: {'; '.join(series_list)}\n", style="bold magenta")
     output.append(
         f"Genres: {', '.join(filters.genre_display_names(book.genres, library.genre_titles()))}\n",
         style="deep_sky_blue4",

@@ -45,8 +45,6 @@ select GROUP_CONCAT(distinct la.AvtorId) as authors,
     GROUP_CONCAT(distinct concat_ws(' ', lan.firstname, lan.middlename, lan.lastname)) as author_names,
     GROUP_CONCAT(distinct lgl.GenreCode)                                               as genres,
     lb.title                                                                           as title,
-    COALESCE(ordered_concat(lsn.seqname, ls.seqid), '')                                as series,
-    COALESCE(ordered_concat(ls.SeqNumb, ls.seqid), '-1')                               as serno,
     lfn.filename                                                                       as filename,
     lb.FileSize                                                                        as filesize,
     lb.BookId                                                                          as lib_id,
@@ -60,8 +58,6 @@ from libbook as lb
     left join libavtorname as lan on lan.AvtorId = la.AvtorId
     left join libgenre as lg on lg.BookId = lb.BookId
     left join libgenrelist as lgl on lgl.GenreId = lg.GenreId
-    left join libseq as ls on ls.BookId = lb.BookId
-    left join libseqname as lsn on lsn.SeqId = ls.SeqId
     left join librate as lr on lr.BookId = lb.BookId
     left join libfilename as lfn on lfn.BookId = lb.BookId
 group by title, filename, filesize, lib_id, ext, year, lang, keywords
@@ -145,33 +141,9 @@ def _ceil(value: Any) -> Any:
     return None if value is None else math.ceil(value)
 
 
-class _OrderedConcat:
-    """Aggregate replacing MySQL ``GROUP_CONCAT(DISTINCT v ORDER BY k)``."""
-
-    def __init__(self) -> None:
-        self._items: list[Any] = []
-
-    def step(self, *values: Any) -> None:
-        value, sortkey = values
-        if value is not None:
-            self._items.append((sortkey, value))
-
-    def finalize(self) -> str | None:
-        seen = set()
-        out = []
-        for sortkey, value in sorted(self._items, key=lambda x: (x[0] is None, x[0])):
-            if sortkey not in seen:
-                seen.add(sortkey)
-                out.append(str(value))
-        return ",".join(out) if out else None
-
-
 def _register_functions(con: sqlite3.Connection) -> None:
     con.create_function("concat_ws", -1, _concat_ws)
     con.create_function("ceil", 1, _ceil)
-    # typeshed's _AggregateProtocol only models single-argument aggregates, so
-    # it cannot express this 2-arg (value, sortkey) aggregate.
-    con.create_aggregate("ordered_concat", 2, _OrderedConcat)  # type: ignore[arg-type]
 
 
 def _meta_path(cache_dir: str) -> Path:
@@ -316,8 +288,6 @@ def build_mirror(  # noqa: PLR0912, PLR0915 - one long linear pass over the dump
         author_names,
         genres,
         title,
-        series,
-        serno,
         filename,
         filesize,
         libid,
@@ -351,16 +321,12 @@ def build_mirror(  # noqa: PLR0912, PLR0915 - one long linear pass over the dump
                     continue
             archive = archives_map[member]
 
-        series_list = series.split(",") if series else []
-        serno_list = [int(x) for x in serno.split(",")] if series else []
-
         book = BookEntry(
             [int(a) for a in authors.split(",")] if authors else [],
             author_names.split(",") if authors else [],
             genres.split(",") if genres else [],
             title,
-            series_list,
-            serno_list,
+            [],  # series placeholder, check SERIES_BOOKS_QUERY for detaiuls
             member,
             filesize,
             libid,
@@ -401,7 +367,10 @@ def build_mirror(  # noqa: PLR0912, PLR0915 - one long linear pass over the dump
 
     db_cursor.execute(SERIES_BOOKS_QUERY)
     series_index = []
+    book_series: dict[str, list[tuple[str, int]]] = {}
     for series_id, book_id, serno, series_name, series_authors in db_cursor:
+        if str(book_id) in books:
+            book_series.setdefault(str(book_id), []).append((series_name, serno))
         series_index.append(
             SeriesBookLink(
                 series_id,
@@ -452,9 +421,12 @@ def build_mirror(  # noqa: PLR0912, PLR0915 - one long linear pass over the dump
             continue
         cover_map[key] = file
 
-    for key in annotation_md.keys() | review_md.keys() | cover_map.keys():
+    for key in (
+        annotation_md.keys() | review_md.keys() | cover_map.keys() | book_series.keys()
+    ):
         books[key] = dataclasses.replace(
             books[key],
+            series=book_series.get(key, []),
             annotation=annotation_md.get(key, ""),
             reviews=review_md.get(key, ""),
             cover=cover_map.get(key, ""),

@@ -74,18 +74,11 @@ class BookViewWidget(Widget):
 
         self._author.update(Text(",".join(book.author_names)))
 
+        book = self._library.fill_book_digest(book)
         self._series.display = bool(book.series)
         if book.series:
             self._series.update(
-                Text(
-                    # TODO Some book's series can not be parsed properly and it breaks parallelism of arrays :(
-                    ",".join(
-                        [
-                            f"{s[0]} ({s[1]})"
-                            for s in zip(book.series, book.serno, strict=False)
-                        ]
-                    )
-                )
+                Text("; ".join(f"{name} ({serno})" for name, serno in book.series))
             )
 
         genres = genre_display_names(book.genres, self._library.genre_titles())
@@ -100,7 +93,6 @@ class BookViewWidget(Widget):
         )
         self._file_data.update(file_data)
 
-        book = self._library.fill_book_digest(book)
         self._annotation_box.display = bool(book.annotation)
         if book.annotation:
             self._annotation.update(book.annotation)

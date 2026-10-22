@@ -82,8 +82,7 @@ def parse_inpx(  # noqa: PLR0912, PLR0915 - one long linear pass over the INPX
                                         series_authors_counter.get(s_a[1], 0) + 1
                                     )
                         serno = optional_int_parse(book_entry[4].decode("UTF-8"))
-                        series_list = [series_names] if series_names else []
-                        serno_list = [serno] if series_names else []
+                        series_list = [(series_names, serno)] if series_names else []
                         filename = book_entry[5].decode("UTF-8")
                         filesize = int(book_entry[6].decode("UTF-8"))
                         libid = int(book_entry[7].decode("UTF-8"))
@@ -117,7 +116,6 @@ def parse_inpx(  # noqa: PLR0912, PLR0915 - one long linear pass over the INPX
                             genres,
                             title,
                             series_list,
-                            serno_list,
                             filename,
                             filesize,
                             libid,
@@ -154,12 +152,13 @@ def parse_inpx(  # noqa: PLR0912, PLR0915 - one long linear pass over the INPX
 
     series_link = []
     for _book_id, book in filter(lambda b: b[1].series, books.items()):
+        series_name, serno = book.series[0]
         series_link.append(
             SeriesBookLink(
-                series_index[book.series[0]],
+                series_index[series_name],
                 book.lib_id,
-                book.serno[0],
-                book.series[0],
+                serno,
+                series_name,
                 book.authors,
             )
         )

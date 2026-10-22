@@ -88,10 +88,7 @@ def _book_result_to_entry(book_result: Hit) -> BookEntry:
         book_result["authors"].split(","),
         book_result["genres"].split(" "),
         book_result["title"],
-        book_result["series"].split(",") if book_result["series"] else [],
-        [int(x) for x in book_result["serno"].split(",")]
-        if book_result["serno"]
-        else [],
+        [],
         None,
         None,
         int(book_result["lib_id"]),
@@ -115,8 +112,6 @@ class BookIndex:
             genres=KEYWORD(stored=True, scorable=True, lowercase=True),
             keywords=KEYWORD(stored=True, scorable=True, lowercase=True, commas=True),
             authors=ID(stored=True),
-            series=ID(stored=True),
-            serno=ID(stored=True),
         )
         self._author_schema = Schema(
             author=TEXT(analyzer=StemmingAnalyzer(), stored=True),
@@ -177,8 +172,6 @@ class BookIndex:
                 genres=" ".join(book.genres),
                 keywords=",".join(book.keywords),
                 authors=",".join(book.author_names),
-                series=",".join(book.series),
-                serno=",".join(str(x) for x in book.serno),
             )
         b_writer.commit()
 

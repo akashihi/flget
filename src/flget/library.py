@@ -122,6 +122,10 @@ BOOK_DIGEST_QUERY = """
 SELECT annotation, reviews FROM book_digest WHERE lib_id=?
 """
 
+BOOK_SERIES_QUERY = """
+SELECT name, serno FROM series WHERE lib_id=? ORDER BY series_id
+"""
+
 COVERS_UPDATE = """
 INSERT INTO covers (lib_id, file) VALUES (?, ?)
 """
@@ -309,10 +313,16 @@ class TheLibrary:
         )
 
     def fill_book_digest(self, book: BookEntry) -> BookEntry:
+        series = [
+            (name, serno)
+            for name, serno in self._file_db.execute(BOOK_SERIES_QUERY, (book.lib_id,))
+        ]
         row = self._file_db.execute(BOOK_DIGEST_QUERY, (book.lib_id,)).fetchone()
         if row is None:
-            return book
-        return dataclasses.replace(book, annotation=row[0], reviews=row[1])
+            return dataclasses.replace(book, series=series)
+        return dataclasses.replace(
+            book, series=series, annotation=row[0], reviews=row[1]
+        )
 
     @property
     def _attached_zip(self) -> zipfile.ZipFile:

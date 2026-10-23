@@ -1,5 +1,6 @@
 from typing import Any, ClassVar, cast
 
+from rich.console import Console
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.binding import BindingType
@@ -19,7 +20,7 @@ from textual.worker import Worker, WorkerState, get_current_worker
 
 from flget.config import Config
 from flget.filters import BookFilter
-from flget.library import TheLibrary
+from flget.library import TheLibrary, not_synced_message
 from flget.mirror import BookEntry
 from flget.tui_authors_tab import AuthorsWidget
 from flget.tui_book_table import BookTable
@@ -217,6 +218,11 @@ class FlTui(App[None]):
 
 def main() -> None:
     app = FlTui()
+    if not app._library.is_synced():
+        Console(stderr=True, style="bold red").print(
+            not_synced_message(app._config.libdir()), markup=False
+        )
+        raise SystemExit(1)
     app.run()
 
 

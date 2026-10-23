@@ -184,8 +184,21 @@ WHERE ab.author_id=? AND NOT EXISTS (SELECT 1 FROM series s WHERE s.lib_id = ab.
 """
 
 
+# sync() commits files.db last, so any files row means a sync has completed.
+ANY_FILE_QUERY = """
+SELECT 1 FROM files LIMIT 1
+"""
+
+
 def _never_cancelled() -> bool:
     return False
+
+
+def not_synced_message(libdir: str) -> str:
+    return (
+        "The library has not been indexed yet. Run `flget sync` first.\n"
+        f"Mirror location: {libdir} (change it with `flget set-library-path PATH`)."
+    )
 
 
 @dataclass(frozen=True)
@@ -560,6 +573,9 @@ class TheLibrary:
             if refilled is not None:
                 result.append(refilled)
         return result
+
+    def is_synced(self) -> bool:
+        return self._file_db.execute(ANY_FILE_QUERY).fetchone() is not None
 
     def get_series_name(self, series_id: int) -> str:
         row = self._file_db.execute(SERIES_NAME_QUERY, (series_id,)).fetchone()

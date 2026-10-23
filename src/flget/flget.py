@@ -1,4 +1,6 @@
+import functools
 import io
+from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated
 
@@ -18,7 +20,7 @@ from textual_image.renderable import Image as CoverRenderable
 from flget import filters
 from flget.config import Config
 from flget.filters import BookFilter
-from flget.library import TheLibrary
+from flget.library import TheLibrary, not_synced_message
 from flget.mirror import BookEntry
 from flget.sync import mirror_sync
 
@@ -71,6 +73,19 @@ MaxSizeOption = Annotated[
 ]
 
 
+def require_sync[**P](command: Callable[P, None]) -> Callable[P, None]:
+    """Decorator used to fail on non-synced index"""
+
+    @functools.wraps(command)
+    def guarded(*args: P.args, **kwargs: P.kwargs) -> None:
+        if not library.is_synced():
+            error_console.print(not_synced_message(config.libdir()), markup=False)
+            raise typer.Exit(1)
+        command(*args, **kwargs)
+
+    return guarded
+
+
 def _build_filter(
     genre: list[str] | None,
     format: list[str] | None,
@@ -94,6 +109,7 @@ def _build_filter(
 
 
 @app.command()
+@require_sync
 def get(
     book_id: int,
     target_path: Annotated[str, typer.Argument()] = platformdirs.user_documents_dir(),
@@ -102,11 +118,15 @@ def get(
     Retrieves book by id and stores it into the specified folder.
 
     """
+    if not library.get_books([book_id]):
+        console.print("Book not found")
+        return
     library.save(book_id, target_path)
     console.print(library.build_filename(book_id), markup=False)
 
 
 @search_app.command(name="author")
+@require_sync
 def author_search(
     query: str,
     genre: GenreOption = None,
@@ -148,6 +168,7 @@ def author_search(
 
 
 @search_app.command(name="series")
+@require_sync
 def series_search(
     query: str,
     genre: GenreOption = None,
@@ -217,6 +238,7 @@ def _book_list_render(title: str, books: list[BookEntry]) -> None:
 
 
 @search_app.command(name="book")
+@require_sync
 def book_search(
     query: str,
     genre: GenreOption = None,
@@ -238,6 +260,7 @@ def book_search(
 
 
 @search_app.command(name="all")
+@require_sync
 def all_search(
     query: str,
     genre: GenreOption = None,
@@ -262,6 +285,7 @@ def all_search(
 
 
 @show_app.command(name="book")
+@require_sync
 def show_book(book_id: int) -> None:
     """
     Show book details
@@ -310,15 +334,21 @@ def show_book(book_id: int) -> None:
 
 
 @show_app.command(name="series")
+@require_sync
 def show_series(series_id: int) -> None:
     """
     Show series books
 
     """
-    _book_list_render(library.get_series_name(series_id), library.get_series(series_id))
+    books = library.get_series(series_id)
+    if not books:
+        console.print("Series not found")
+        return
+    _book_list_render(library.get_series_name(series_id), books)
 
 
 @show_app.command(name="author")
+@require_sync
 def show_author(
     author_id: int,
     author_only: Annotated[
@@ -379,6 +409,7 @@ def sync(
 
 
 @filters_app.command(name="genres")
+@require_sync
 def filters_genres() -> None:
     """
     List the genre codes available for filtering.
@@ -393,6 +424,7 @@ def filters_genres() -> None:
 
 
 @filters_app.command(name="formats")
+@require_sync
 def filters_formats() -> None:
     """
     List the file formats available for filtering.
@@ -406,6 +438,7 @@ def filters_formats() -> None:
 
 
 @filters_app.command(name="languages")
+@require_sync
 def filters_languages() -> None:
     """
     List the language codes available for filtering.

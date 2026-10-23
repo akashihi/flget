@@ -91,7 +91,11 @@ def mirror_sync(
             try:
                 inpx_mirror = parse_inpx(config.libdir(), task_updater)
             except FileNotFoundError:
-                error_console.print("INPX file is not available")
+                error_console.print(
+                    f"INPX file is not available in {config.libdir()}. "
+                    "Set the mirror location with `flget set-library-path PATH`.",
+                    markup=False,
+                )
                 return
         console.print(
             f"Found [spring_green4]{len(inpx_mirror)}[/spring_green4] books",

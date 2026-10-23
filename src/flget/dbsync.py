@@ -6,6 +6,7 @@ import sqlite3
 from collections.abc import Callable
 from gzip import GzipFile
 from http import HTTPStatus
+from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 from zipfile import ZipFile
@@ -18,6 +19,7 @@ from flget.mirror import AuthorEntry, BookEntry, Mirror, SeriesBookLink, SeriesE
 from flget.mysqldump import load_dump
 
 FLIBUSTA_DB_PAGE = "https://flibusta.is/sql/{}"
+USER_AGENT = f"flget/{version('flget')} {requests.utils.default_user_agent()}"
 DB_FILE = [
     "lib.libtranslator.sql.gz",
     "lib.libavtor.sql.gz",
@@ -170,7 +172,7 @@ def _download_file(
     url = FLIBUSTA_DB_PAGE.format(dump)
     local_filename = Path(target_dir) / url.split("/")[-1]
 
-    headers: dict[str, str] = {}
+    headers = {"User-Agent": USER_AGENT}
     entry = meta.get(dump)
     if not force and entry and local_filename.is_file():
         size = entry.get("size")

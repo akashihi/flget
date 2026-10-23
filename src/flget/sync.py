@@ -1,9 +1,17 @@
+from pathlib import Path
+
 from prompt_toolkit import prompt
 from rich.console import Console
 from rich.progress import Progress
 
 from flget.config import Config
-from flget.dbsync import build_mirror, db_import_dumps, decompress_dumps, get_dumps
+from flget.dbsync import (
+    build_mirror,
+    db_import_dumps,
+    decompress_dumps,
+    get_dumps,
+    import_dumps,
+)
 from flget.inpx import parse_inpx
 from flget.library import MirrorValidationResult, TheLibrary
 from flget.mirror import Mirror
@@ -56,6 +64,7 @@ def index_books(inpx_mirror: Mirror, library: TheLibrary) -> None:
 def mirror_sync(
     force_db_sync: bool,
     force_download: bool,
+    dumps_dir: Path | None,
     config: Config,
     library: TheLibrary,
     console: Console,
@@ -105,13 +114,19 @@ def mirror_sync(
     if db_sync_answer.lower() == "y" or force_db_sync:
         with Progress() as progress:
             download_task = progress.add_task(
-                total=100, description="[magenta]Downloading DB dumps"
+                total=100,
+                description="[magenta]Copying DB dumps"
+                if dumps_dir
+                else "[magenta]Downloading DB dumps",
             )
 
             def task_updater(advance: float) -> None:
                 progress.update(download_task, advance=advance)
 
-            get_dumps(task_updater, force=force_download)
+            if dumps_dir:
+                import_dumps(dumps_dir, task_updater)
+            else:
+                get_dumps(task_updater, force=force_download)
         with Progress() as progress:
             decompress_task = progress.add_task(
                 total=100, description="[magenta]Decompressing DB dumps"

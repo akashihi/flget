@@ -211,6 +211,16 @@ def get_dumps(progress_update: Callable[[float], None], force: bool = False) -> 
         progress_update(progress)
 
 
+def import_dumps(source_dir: Path, progress_update: Callable[[float], None]) -> None:
+    flget_cache_dir = platformdirs.user_cache_dir("flget", ensure_exists=True)
+    _meta_path(flget_cache_dir).unlink(missing_ok=True)
+    all_files = DB_FILE + ATTACHMENT_FILE
+    progress = 100.0 / len(all_files)
+    for file in all_files:
+        shutil.copyfile(source_dir / file, Path(flget_cache_dir) / file)
+        progress_update(progress)
+
+
 def decompress_dumps(progress_update: Callable[[float], None]) -> None:
     flget_cache_dir = platformdirs.user_cache_dir("flget", ensure_exists=True)
     progress = 100.0 / len(DB_FILE)

@@ -9,6 +9,7 @@ SQL dumps) and lets you search it from the command line.
 
 ```
 flget sync                       # build/refresh the local index
+flget sync --force-db-sync --dumps-dir <folder>  # use separately downloaded SQL dumps
 flget search book "<query>"      # search books
 flget search author "<query>"    # search authors
 flget search series "<query>"    # search series

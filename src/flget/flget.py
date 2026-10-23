@@ -1,4 +1,5 @@
 import io
+from pathlib import Path
 from typing import Annotated
 
 import humanize
@@ -348,6 +349,15 @@ def sync(
     force_download: Annotated[
         bool, typer.Option(help="Ignore cached metadata and re-download all DB dumps.")
     ] = False,
+    dumps_dir: Annotated[
+        Path | None,
+        typer.Option(
+            exists=True,
+            file_okay=False,
+            resolve_path=True,
+            help="Copy DB dumps from this folder instead of downloading them.",
+        ),
+    ] = None,
 ) -> None:
     """
     Synchronize the internal database with a library.
@@ -357,7 +367,15 @@ def sync(
 
 
     """
-    mirror_sync(force_db_sync, force_download, config, library, console, error_console)
+    mirror_sync(
+        force_db_sync,
+        force_download,
+        dumps_dir,
+        config,
+        library,
+        console,
+        error_console,
+    )
 
 
 @filters_app.command(name="genres")

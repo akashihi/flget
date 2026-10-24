@@ -55,6 +55,7 @@ dev = [
     "pre-commit>=4",
     "textual-dev>=1.8.0,<2",
     "types-requests>=2.32.0.20241016,<3",
+    "pytest>=9.1.1,<10",
 ]
 
 [build-system]
@@ -63,6 +64,10 @@ build-backend = "uv_build"
 
 [tool.codespell]
 ignore-words-list = "gost"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--import-mode=importlib"]
 
 [tool.ruff]
 target-version = "py312"
@@ -97,13 +102,15 @@ ignore = [
 # Typer derives the CLI flag from the parameter name/
 "src/flget/flget.py" = ["A002"]
 "src/flget/naming.py" = ["RUF001"]
+# Tests assert against literal expected values, Cyrillic ones included.
+"tests/*" = ["S101", "PLR2004", "RUF001"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 
 [tool.mypy]
 python_version = "3.12"
-files = ["src/flget"]
+files = ["src/flget", "tests"]
 strict = true
 
 # These ship no type stubs / py.typed marker.

@@ -1,6 +1,7 @@
 import functools
 import io
 from collections.abc import Callable
+from importlib.metadata import version
 from pathlib import Path
 from typing import Annotated
 
@@ -106,6 +107,29 @@ def _build_filter(
         min_size=filters.parse_size(min_size) if min_size is not None else None,
         max_size=filters.parse_size(max_size) if max_size is not None else None,
     )
+
+
+def _print_version(value: bool) -> None:
+    if value:
+        console.print(f"flget {version('flget')}", markup=False, highlight=False)
+        raise typer.Exit
+
+
+@app.callback()
+def cli(
+    _show_version: Annotated[
+        bool,
+        typer.Option(
+            "--version",
+            callback=_print_version,
+            is_eager=True,
+            help="Show the version and exit.",
+        ),
+    ] = False,
+) -> None:
+    """
+    Search and download books from a local Flibusta mirror.
+    """
 
 
 @app.command()

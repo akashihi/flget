@@ -5,6 +5,20 @@ description = "Local Flibusta mirror search tool"
 readme = "README.md"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
+authors = [{ name = "Denis Chaplygin", email = "me@akashihi.org" }]
+keywords = ["flibusta", "inpx", "ebook", "fb2", "library", "search", "tui", "cli"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Text Processing :: Indexing",
+    "Topic :: Utilities",
+]
 requires-python = ">=3.12"
 dependencies = [
     "pyfiglet>=1.0.4,<2",
@@ -22,6 +36,11 @@ dependencies = [
     "Unidecode>=1.3,<2",
     "markdownify>=1.2.2,<2",
 ]
+
+[project.urls]
+Homepage = "https://github.com/akashihi/flget"
+Source = "https://github.com/akashihi/flget"
+Issues = "https://github.com/akashihi/flget/issues"
 
 [project.scripts]
 flget = "flget.flget:main"

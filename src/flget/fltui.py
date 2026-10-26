@@ -129,17 +129,21 @@ class FlTui(App[None]):
             for worker in self.workers
         )
 
-    def _schedule_search(self) -> None:
+    def _stop_search_timer(self) -> None:
         if self._search_timer is not None:
             self._search_timer.stop()
             self._search_timer = None
 
+    def _schedule_search(self) -> None:
+        self._stop_search_timer()
+
         query = self._current_query
         if len(query) == 0:
-            # Empty box: abort any in-flight search, clear results, unblock tabs.
+            # Empty box: abort search
             self.workers.cancel_group(self, SEARCH_GROUP)
-            active = self.query_one(TabbedContent).active
-            self._populate_results(active, [])
+            self._books_table.populate([])
+            self._authors_view.populate([])
+            self._series_view.populate([])
             self.query_one(Tabs).disabled = False
             for widget in (self._books_table, self._series_view, self._authors_view):
                 widget.loading = False
@@ -149,6 +153,7 @@ class FlTui(App[None]):
         self._search_timer = self.set_timer(delay, self._start_search)
 
     def _start_search(self) -> None:
+        self._stop_search_timer()  # Stop a query in a tab switching
         active = self.query_one(TabbedContent).active
         # Block tab switching and show a loading state while the search runs.
         self.query_one(Tabs).disabled = True
@@ -199,6 +204,11 @@ class FlTui(App[None]):
     def on_search_input(self, event: Input.Changed) -> None:
         self._current_query = event.value
         self._schedule_search()
+
+    @on(TabbedContent.TabActivated)
+    def on_tab_activated(self) -> None:
+        if self._current_query:
+            self._start_search()
 
     @on(DataTable.RowHighlighted, "BookTable")
     def on_book_select(self, event: DataTable.RowHighlighted) -> None:

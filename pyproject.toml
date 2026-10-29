@@ -25,8 +25,6 @@ dependencies = [
     "platformdirs>=4.3.6,<5",
     "typer>=0.27.2,<0.28",
     "tomlkit>=0.15.2,<0.16",
-    "prompt_toolkit>=3.0.48,<4",
-    "requests>=2.32.3,<3",
     "whoosh-reloaded>=2.7.5,<2.8",
     "rich>=14.2,<16",
     "textual>=8.2.8,<9",
@@ -54,7 +52,6 @@ dev = [
     "deptry>=0.25,<0.26",
     "pre-commit>=4",
     "textual-dev>=1.8.0,<2",
-    "types-requests>=2.32.0.20241016,<3",
     "pytest>=9.1.1,<10",
 ]
 

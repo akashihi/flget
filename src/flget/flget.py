@@ -397,33 +397,22 @@ def show_author(
 
 @app.command()
 def sync(
-    force_db_sync: Annotated[
-        bool, typer.Option(is_flag=True, help="Skip INPX import.")
-    ] = False,
-    force_download: Annotated[
-        bool, typer.Option(help="Ignore cached metadata and re-download all DB dumps.")
-    ] = False,
     dumps_dir: Annotated[
         Path | None,
         typer.Option(
             exists=True,
             file_okay=False,
             resolve_path=True,
-            help="Copy DB dumps from this folder instead of downloading them.",
+            help="Sync from the SQL dumps in this folder instead of the INPX.",
         ),
     ] = None,
 ) -> None:
     """
     Synchronize the internal database with a library.
 
-    Reads INPX file (if provided), DB dump file (if provided), and analyzes content of
-    the library mirror. Processed books are indexed into a local database.
-
-
+    Imports the INPX, or the SQL dumps from --dumps-dir, then indexes and validates.
     """
     mirror_sync(
-        force_db_sync,
-        force_download,
         dumps_dir,
         config,
         library,

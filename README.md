@@ -113,7 +113,7 @@ uv run fltui
 
 ```bash
 flget set-library-path /mnt/library/Flibusta.Net   # stored in flget.toml
-flget sync                                         # import the INPX/SQL dump, build the index, validate
+flget sync                                         # import the INPX, build the index, validate
 fltui
 ```
 
@@ -193,7 +193,7 @@ flget get 305016 ~/Books
 
 The default imports the INPX, then validates it against the archives on disk:
 missing archives, unknown archives, and books found in archives but not in the
-catalogue. If the INPX turns out incomplete, sync offers to switch to the dumps.
+catalogue. If the INPX turns out incomplete, sync suggests a dump sync.
 
 The INPX has no author or series IDs, so flget assigns its own during import.
 Author and series IDs shown by `flget search` and used by `flget show` therefore
@@ -201,15 +201,12 @@ differ between an INPX sync and a dump sync; after switching sources, look them
 up again.
 
 ```bash
-flget sync                                              # INPX + validation + optional SQL dumps sync
-flget sync --force-db-sync                              # SQL dumps only
-flget sync --force-db-sync --force-download             # ignore cached ETags, re-download
-flget sync --force-db-sync --dumps-dir ~/flibusta-sql   # use dumps from a local folder
+flget sync                              # INPX
+flget sync --dumps-dir ~/flibusta-sql   # SQL dumps from a local folder
 ```
 
-Dumps are fetched from `flibusta.is/sql/`. That server is often down, so
-`--dumps-dir` takes a flat folder of dumps obtained some other way, under their
-original names:
+flget does not download the dumps itself. `--dumps-dir` takes a flat folder of the dumps under
+their original names:
 
 ```text
 lib.libavtor.sql.gz         lib.libgenrelist.sql.gz     lib.libseq.sql.gz
@@ -243,9 +240,6 @@ finds nothing, search by title, series or the Russian name.
 **No annotations, reviews or covers.**
 The INPX doesn't contain them. Sync from the SQL dumps.
 
-**Dump download fails.**
-Expected, the server is unreliable. Get the files elsewhere and use `--dumps-dir`.
-
 **Covers look blocky.**
 The terminal has no image protocol; flget falls back to half-blocks.
 
@@ -264,9 +258,8 @@ mirror. Sync, index, CLI and TUI are checked by running them.
 
 flget is a search and indexing tool. It does not host, distribute or link to
 books or other copyrighted material, and works only with a mirror already on
-your storage, which it reads but never modifies. Its only network access is
-downloading Flibusta's catalogue metadata (SQL dumps) from `flibusta.is/sql/`,
-and only for a dump sync. It is not affiliated with Flibusta. Make sure your
+your storage, which it reads but never modifies. It makes no network access.
+It is not affiliated with Flibusta. Make sure your
 use of any library complies with the laws of your country.
 
 ## License

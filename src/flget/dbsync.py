@@ -1,25 +1,19 @@
 import dataclasses
-import json
 import math
 import shutil
 import sqlite3
 from collections.abc import Callable
 from gzip import GzipFile
-from http import HTTPStatus
-from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 from zipfile import ZipFile
 
 import platformdirs
-import requests
 from markdownify import markdownify
 
 from flget.mirror import AuthorEntry, BookEntry, Mirror, SeriesBookLink, SeriesEntry
 from flget.mysqldump import load_dump
 
-FLIBUSTA_DB_PAGE = "https://flibusta.is/sql/{}"
-USER_AGENT = f"flget/{version('flget')} {requests.utils.default_user_agent()}"
 DB_FILE = [
     "lib.libtranslator.sql.gz",
     "lib.libavtor.sql.gz",
@@ -148,72 +142,8 @@ def _register_functions(con: sqlite3.Connection) -> None:
     con.create_function("ceil", 1, _ceil)
 
 
-def _meta_path(cache_dir: str) -> Path:
-    return Path(cache_dir) / "dumps_meta.json"
-
-
-def _load_meta(cache_dir: str) -> dict[str, Any]:
-    try:
-        with _meta_path(cache_dir).open() as f:
-            loaded: dict[str, Any] = json.load(f)
-            return loaded
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
-
-
-def _save_meta(cache_dir: str, meta: dict[str, Any]) -> None:
-    with _meta_path(cache_dir).open("w") as f:
-        json.dump(meta, f)
-
-
-def _download_file(
-    target_dir: str, dump: str, meta: dict[str, Any], force: bool = False
-) -> Path:
-    url = FLIBUSTA_DB_PAGE.format(dump)
-    local_filename = Path(target_dir) / url.split("/")[-1]
-
-    headers = {"User-Agent": USER_AGENT}
-    entry = meta.get(dump)
-    if not force and entry and local_filename.is_file():
-        size = entry.get("size")
-        # Only trust the cached validators when the local file is intact.
-        if size is None or local_filename.stat().st_size == size:
-            if entry.get("etag"):
-                headers["If-None-Match"] = entry["etag"]
-            if entry.get("last_modified"):
-                headers["If-Modified-Since"] = entry["last_modified"]
-
-    with requests.get(url, stream=True, headers=headers, timeout=(10, 60)) as r:
-        r.raise_for_status()
-        if r.status_code == HTTPStatus.NOT_MODIFIED:
-            return local_filename
-        written = 0
-        with local_filename.open("wb") as f:
-            for chunk in r.iter_content(chunk_size=1048576):
-                f.write(chunk)
-                written += len(chunk)
-        meta[dump] = {
-            "etag": r.headers.get("ETag"),
-            "last_modified": r.headers.get("Last-Modified"),
-            "size": written,
-        }
-    return local_filename
-
-
-def get_dumps(progress_update: Callable[[float], None], force: bool = False) -> None:
-    flget_cache_dir = platformdirs.user_cache_dir("flget", ensure_exists=True)
-    meta = _load_meta(flget_cache_dir)
-    all_downloads = DB_FILE + ATTACHMENT_FILE
-    progress = 100.0 / len(all_downloads)
-    for file in all_downloads:
-        _download_file(flget_cache_dir, file, meta, force=force)
-        _save_meta(flget_cache_dir, meta)
-        progress_update(progress)
-
-
 def import_dumps(source_dir: Path, progress_update: Callable[[float], None]) -> None:
     flget_cache_dir = platformdirs.user_cache_dir("flget", ensure_exists=True)
-    _meta_path(flget_cache_dir).unlink(missing_ok=True)
     all_files = DB_FILE + ATTACHMENT_FILE
     progress = 100.0 / len(all_files)
     for file in all_files:

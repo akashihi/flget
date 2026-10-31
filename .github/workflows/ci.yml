@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          version: "0.13.4"
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+
+      - name: Sync dependencies
+        run: uv sync --locked
+
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ matrix.python }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: pre-commit
+        run: uv run pre-commit run --all-files --show-diff-on-failure
+        env:
+          SKIP: pytest
+
+      - name: pytest
+        run: uv run pytest
+
+      - name: Build
+        run: uv build
+
+      - name: Smoke test the wheel
+        run: |
+          uv venv "$RUNNER_TEMP/smoke"
+          uv pip install --python "$RUNNER_TEMP/smoke" dist/*.whl
+          "$RUNNER_TEMP/smoke/bin/flget" --help
+          "$RUNNER_TEMP/smoke/bin/flget" --version
+          "$RUNNER_TEMP/smoke/bin/python" -c "import flget.fltui"

@@ -1,6 +1,7 @@
 # flget
 
 <p>
+  <a href="https://github.com/akashihi/flget/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/akashihi/flget/ci.yml?branch=master&style=for-the-badge&logo=githubactions&logoColor=white&label=CI" alt="CI status" /></a>
   <a href="https://pypi.org/project/flget/"><img src="https://img.shields.io/pypi/v/flget?style=for-the-badge&logo=pypi&logoColor=white" alt="PyPI version" /></a>
   <a href="https://pypi.org/project/flget/"><img src="https://img.shields.io/badge/python-3.12%2B-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.12+" /></a>
   <a href="https://github.com/akashihi/flget/blob/HEAD/LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue?style=for-the-badge" alt="License: GPL-3.0-or-later" /></a>

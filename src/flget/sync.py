@@ -64,7 +64,7 @@ def _inpx_sync(
     library: TheLibrary,
     console: Console,
     error_console: Console,
-) -> None:
+) -> bool:
     with Progress() as progress:
         inpx_task = progress.add_task(
             total=100, description="[spring_green4]INPX import"
@@ -74,20 +74,21 @@ def _inpx_sync(
             progress.update(inpx_task, advance=advance)
 
         try:
-            inpx_mirror = parse_inpx(config.libdir(), task_updater)
+            inpx_mirror = parse_inpx(str(config.require_libdir()), task_updater)
         except FileNotFoundError:
             error_console.print(
-                f"INPX file is not available in {config.libdir()}. "
-                "Set the mirror location with `flget set-library-path PATH`.",
+                f"INPX file is not available in {config.require_libdir()}. "
+                "Pass the mirror location with `flget sync --library-path PATH`.",
                 markup=False,
             )
-            return
+            return False
     console.print(
         f"Found [spring_green4]{len(inpx_mirror)}[/spring_green4] books",
         style="royal_blue1",
     )
 
     index_books(inpx_mirror, library)
+    config.save()
 
     validation_results = validate_mirror(library)
     report_validation_results(console, validation_results)
@@ -99,6 +100,7 @@ def _inpx_sync(
             style="royal_blue1",
             markup=False,
         )
+    return True
 
 
 def _dump_sync(
@@ -140,13 +142,16 @@ def _dump_sync(
         def task_updater(advance: float) -> None:
             progress.update(mirror_task, advance=advance)
 
-        db_mirror = build_mirror(config.libdir(), task_updater)
+        db_mirror = build_mirror(str(config.require_libdir()), task_updater)
         console.print(
             f"Found [spring_green4]{len(db_mirror)}[/spring_green4] books",
             style="royal_blue1",
         )
 
     index_books(db_mirror, library)
+    # Stored only now, so a failed sync keeps the previous location.
+    config.save()
+
     validation_results = validate_mirror(library)
     report_validation_results(console, validation_results)
 
@@ -157,14 +162,30 @@ def mirror_sync(
     library: TheLibrary,
     console: Console,
     error_console: Console,
-) -> None:
+) -> bool:
     """
     Synchronize the internal database with a library.
 
     Imports the INPX file, or the SQL dumps from ``dumps_dir`` when given, indexes
-    the books and validates them against the library mirror.
+    the books and validates them against the library mirror at ``config.libdir()``,
+    which a successful sync stores. Returns False when the sync could not run.
     """
+    libdir = config.libdir()
+    if libdir is None:
+        error_console.print(
+            "No library path set. Run `flget sync --library-path PATH`.",
+            markup=False,
+        )
+        return False
+    if not libdir.is_dir():
+        error_console.print(
+            f"Library path {libdir} is not a directory. "
+            "Pass the mirror location with `flget sync --library-path PATH`.",
+            markup=False,
+        )
+        return False
+
     if dumps_dir:
         _dump_sync(dumps_dir, config, library, console)
-    else:
-        _inpx_sync(config, library, console, error_console)
+        return True
+    return _inpx_sync(config, library, console, error_console)

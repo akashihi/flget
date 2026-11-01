@@ -113,10 +113,12 @@ uv run fltui
 ## First run
 
 ```bash
-flget set-library-path /mnt/library/Flibusta.Net   # stored in flget.toml
-flget sync                                         # import the INPX, build the index, validate
+flget sync --library-path /mnt/library/Flibusta.Net   # import the INPX, build the index, validate
 fltui
 ```
+
+Once the sync succeeds, the mirror location is stored in `flget.toml`; later
+commands and syncs use it.
 
 The first sync parses the whole catalogue and opens every archive for
 validation, so on a full mirror it takes a while. Until a sync has completed,
@@ -201,9 +203,15 @@ Author and series IDs shown by `flget search` and used by `flget show` therefore
 differ between an INPX sync and a dump sync; after switching sources, look them
 up again.
 
+The mirror location comes from `--library-path`, or from `flget.toml` when the
+option is omitted. A successful sync stores it; a failed one leaves the stored
+location unchanged. If the mirror moves, sync again with the new
+`--library-path`.
+
 ```bash
-flget sync                              # INPX
-flget sync --dumps-dir ~/flibusta-sql   # SQL dumps from a local folder
+flget sync --library-path /mnt/library/Flibusta.Net   # INPX, store the location
+flget sync                                            # INPX, stored location
+flget sync --dumps-dir ~/flibusta-sql                 # SQL dumps from a local folder
 ```
 
 flget does not download the dumps itself. `--dumps-dir` takes a flat folder of the dumps under
@@ -224,7 +232,7 @@ Locations come from [platformdirs](https://github.com/tox-dev/platformdirs):
 
 | | Linux | macOS | Windows |
 |---|---|---|---|
-| Config (`flget.toml`) | `~/.config/flget/` | `~/Library/Application Support/flget/` | `%LOCALAPPDATA%\flget\flget\` |
+| Config (`flget.toml`, mirror location) | `~/.config/flget/` | `~/Library/Application Support/flget/` | `%LOCALAPPDATA%\flget\flget\` |
 | Cache (index, `files.db`, dumps) | `~/.cache/flget/` | `~/Library/Caches/flget/` | `%LOCALAPPDATA%\flget\flget\Cache\` |
 
 The cache is fully rebuildable: delete it and run `flget sync`. The mirror

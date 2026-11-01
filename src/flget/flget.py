@@ -346,7 +346,7 @@ def show_book(book_id: int) -> None:
         f"Language: {filters.language_display(book.lang)}\n", style="indian_red1"
     )
     output.append(
-        f"{library._archive_member_name(book.filename, book.ext)} in {config.libdir()}{book.archive}.zip ({humanize.naturalsize(book.filesize or 0, gnu=True)} bytes)\n",
+        f"{library._archive_member_name(book.filename, book.ext)} in {library.archive_path(book.archive or '')} ({humanize.naturalsize(book.filesize or 0, gnu=True)} bytes)\n",
         style="magenta",
     )
     console.print(Panel(output, title=Text(book.title), subtitle=str(book.lib_id)))
@@ -406,19 +406,31 @@ def sync(
             help="Sync from the SQL dumps in this folder instead of the INPX.",
         ),
     ] = None,
+    library_path: Annotated[
+        Path | None,
+        typer.Option(
+            exists=True,
+            file_okay=False,
+            resolve_path=True,
+            help="Mirror location; stored after a successful sync and reused later.",
+        ),
+    ] = None,
 ) -> None:
     """
     Synchronize the internal database with a library.
 
     Imports the INPX, or the SQL dumps from --dumps-dir, then indexes and validates.
     """
-    mirror_sync(
+    if library_path is not None:
+        config.set_libdir(library_path)
+    if not mirror_sync(
         dumps_dir,
         config,
         library,
         console,
         error_console,
-    )
+    ):
+        raise typer.Exit(1)
 
 
 @filters_app.command(name="genres")
@@ -465,26 +477,15 @@ def filters_languages() -> None:
     console.print(table)
 
 
-@app.command()
-def set_library_path(path: str) -> None:
-    """
-    Set and store PATH to the flibusta mirror.
-    """
-    config.set_libdir(path)
-
-    console.print(
-        f"[royal_blue1]Library location set to[/royal_blue1]: {escape(str(config.libdir()))}"
-    )
-
-
 def main() -> None:
     # Banner
     f = pyfiglet.figlet_format("FlGet", font="univers")
     console.print(f, style="chartreuse4")
 
     # Library directory:
+    libdir = config.libdir()
     console.print(
-        f"[royal_blue1]Library location[/royal_blue1]: {escape(str(config.libdir()))}"
+        f"[royal_blue1]Library location[/royal_blue1]: {escape(str(libdir)) if libdir else 'not set'}"
     )
 
     # CLI setup

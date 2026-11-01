@@ -12,27 +12,33 @@ class Config:
 
         self._flget_config = flget_config
 
+        self._libdir: Path | None = None
         if flget_config.exists():
             with flget_config.open() as config_file:
                 doc = load(config_file)
-                self._libdir = str(cast("Any", doc)["flget"]["libdir"])
-        else:
-            self._libdir = platformdirs.user_documents_dir()
+                self._libdir = Path(str(cast("Any", doc)["flget"]["libdir"]))
 
-    def libdir(self) -> str:
+    def libdir(self) -> Path | None:
         return self._libdir
 
-    def set_libdir(self, path: str) -> None:
+    def require_libdir(self) -> Path:
+        if self._libdir is None:
+            msg = "Library location is not set"
+            raise RuntimeError(msg)
+        return self._libdir
+
+    def set_libdir(self, path: Path) -> None:
+        self._libdir = path
+
+    def save(self) -> None:
         doc = document()
         doc.add(comment("flget/fltui configuration file."))
         doc.add(nl())
 
         flget = table()
-        flget.add("libdir", path)
+        flget.add("libdir", str(self.require_libdir()))
 
         doc["flget"] = flget
 
         with self._flget_config.open("w") as config_file:
             dump(doc, config_file)
-
-        self._libdir = path

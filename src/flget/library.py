@@ -194,11 +194,14 @@ def _never_cancelled() -> bool:
     return False
 
 
-def not_synced_message(libdir: str) -> str:
-    return (
-        "The library has not been indexed yet. Run `flget sync` first.\n"
-        f"Mirror location: {libdir} (change it with `flget set-library-path PATH`)."
+def not_synced_message(libdir: Path | None) -> str:
+    message = (
+        "The library has not been indexed yet. "
+        "Run `flget sync --library-path PATH` first."
     )
+    if libdir is not None:
+        message += f"\nMirror location: {libdir}"
+    return message
 
 
 @dataclass(frozen=True)
@@ -493,13 +496,16 @@ class TheLibrary:
             author, series, serno, book.title, book_id, book.ext or "", book.lang
         )
 
+    def archive_path(self, archive: str) -> Path:
+        """Path to an archive in the mirror; the name may omit the .zip suffix."""
+        libdir = self._config.require_libdir()
+        if archive.lower().endswith(".zip"):
+            return libdir / archive
+        return libdir / f"{archive}.zip"
+
     def save(self, book_id: int, target_path: str) -> None:
         book_file = self._file_db.execute(FILES_QUERY, (book_id,)).fetchone()
-        libdir = Path(self._config.libdir())
-        if book_file[0].lower().endswith(".zip"):
-            zippath = libdir / book_file[0]
-        else:
-            zippath = libdir / f"{book_file[0]}.zip"
+        zippath = self.archive_path(book_file[0])
         member = self._archive_member_name(book_file[1], book_file[3])
         out_name = self.build_filename(book_id)
         with zipfile.ZipFile(zippath, "r") as archive:
@@ -510,7 +516,7 @@ class TheLibrary:
     def _count_unknown_archives(self, progress_update: Callable[[float], None]) -> int:
         archives = {x[0] for x in self._file_db.execute(ARCHIVES_QUERY).fetchall()}
         unknown_archives = 0
-        files_in_lib = list(Path(self._config.libdir()).iterdir())
+        files_in_lib = list(self._config.require_libdir().iterdir())
         progress = 50.0 / float(len(files_in_lib))
         for entry in files_in_lib:
             progress_update(progress)
@@ -532,10 +538,7 @@ class TheLibrary:
         missing_archives = 0
         for archive in archives:
             progress_update(progress)
-            if archive.lower().endswith(".zip"):
-                archive_path = Path(self._config.libdir()) / archive
-            else:
-                archive_path = Path(self._config.libdir()) / f"{archive}.zip"
+            archive_path = self.archive_path(archive)
             if not archive_path.exists():
                 missing_archives += 1
             else:

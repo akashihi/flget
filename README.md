@@ -26,7 +26,7 @@ There are two frontends over the same backend:
   browsing, filters, and a book card with annotation, reviews and cover.
 - `flget`: a CLI for searching, inspecting, syncing and extracting books.
 
-![fltui: book search with the book card open](docs/screenshots/tui-books.svg)
+![fltui: book search with the book card open](https://raw.githubusercontent.com/akashihi/flget/master/docs/screenshots/tui-books.svg)
 
 > **⚠️ flget distributes no books and no copyrighted content.** It only indexes and
 > reads a library mirror that you already have on your own disk. It is not
